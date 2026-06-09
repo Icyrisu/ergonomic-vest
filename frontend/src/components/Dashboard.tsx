@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Socket } from 'socket.io-client';
+import { Activity } from 'lucide-react';
 import ThreeModel from './ThreeModel';
 
 interface DashboardProps {
@@ -157,10 +158,13 @@ export default function Dashboard({ socket }: DashboardProps) {
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 shrink-0">
           <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2">Angle Values</h3>
           
-          <div className="flex justify-between items-center bg-slate-800 text-white p-3 rounded-xl mb-3 shadow-md">
+          <div className="flex justify-between items-center bg-slate-800 text-white p-4 rounded-xl mb-3 shadow-md">
             <div>
               <p className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-0.5">Total Curve Angle</p>
               <p id="val-curve" className="text-2xl font-bold text-green-400">0.00°</p>
+            </div>
+            <div className="p-2.5 bg-slate-700 rounded-lg shadow-inner border border-slate-600/50">
+              <Activity className="w-7 h-7 text-sky-400" />
             </div>
           </div>
 
@@ -177,18 +181,28 @@ export default function Dashboard({ socket }: DashboardProps) {
         {/* Impact Wrench Control */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 shrink-0">
           <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2">Impact Wrench</h3>
-          
-          <div className="flex flex-col justify-center items-center gap-4 py-2">
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-lg transition-colors duration-300 ${wrenchStatus ? 'bg-green-500 shadow-green-500/40' : 'bg-red-500 shadow-red-500/40'}`}>
-              {wrenchStatus ? 'ON' : 'OFF'}
+          <div className="flex flex-col gap-3 py-1">
+            {/* Status Display matching Total Curve Angle style */}
+            <div className="flex justify-between items-center bg-slate-800 text-white p-4 rounded-xl shadow-md">
+              <div>
+                <p className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-0.5">Current Status</p>
+                <p className={`text-2xl font-bold ${wrenchStatus ? 'text-green-400' : 'text-red-400'}`}>
+                  {wrenchStatus ? 'ONLINE' : 'OFFLINE'}
+                </p>
+              </div>
+              <div className="p-3 bg-slate-700 rounded-lg shadow-inner border border-slate-600/50 flex items-center justify-center">
+                {/* Small indicator dot */}
+                <div className={`w-4 h-4 rounded-full ${wrenchStatus ? 'bg-green-400' : 'bg-red-400'}`}></div>
+              </div>
             </div>
             
-            <div className="flex gap-3 w-full">
-              <button onClick={turnWrenchOn} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold transition-all shadow-md active:scale-95">
-                ON
+            {/* Control Buttons (Flat, no shadow) */}
+            <div className="flex gap-2 w-full mt-1">
+              <button onClick={turnWrenchOn} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold transition-colors active:scale-95">
+                TURN ON
               </button>
-              <button onClick={turnWrenchOff} className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-all shadow-md active:scale-95">
-                OFF
+              <button onClick={turnWrenchOff} className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors active:scale-95">
+                TURN OFF
               </button>
             </div>
           </div>

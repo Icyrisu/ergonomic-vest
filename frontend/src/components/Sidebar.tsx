@@ -27,11 +27,11 @@ export default function Sidebar({ isOpen, isMobileOpen, toggleSidebar, toggleMob
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         {/* Header */}
-        <div className="flex items-center h-16 border-b border-slate-200 px-6">
-          <span className={`font-bold text-slate-800 text-lg transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 hidden'}`}>
+        <div className="flex items-center justify-center h-14 md:h-16 border-b border-slate-200 px-2 shrink-0">
+          <span className={`font-bold text-slate-800 text-base md:text-lg transition-opacity duration-300 text-center ${isOpen ? 'opacity-100 w-full block' : 'opacity-0 hidden'}`}>
             Ergonomic Vest
           </span>
-          <span className={`font-bold text-slate-800 text-lg mx-auto ${isOpen ? 'hidden' : 'block'}`}>
+          <span className={`font-bold text-slate-800 text-base md:text-lg text-center w-full block ${isOpen ? 'hidden' : 'block'}`}>
             EV
           </span>
         </div>
@@ -56,10 +56,10 @@ export default function Sidebar({ isOpen, isMobileOpen, toggleSidebar, toggleMob
         </nav>
 
         {/* Footer Toggle Button */}
-        <div className="h-16 border-t border-slate-200 p-4 hidden md:flex items-center justify-center">
+        <div className="h-10 md:h-12 bg-blue-500 p-1.5 md:p-2 hidden md:flex items-center justify-center shrink-0 shadow-[0_-2px_10px_rgba(0,0,0,0.1)] z-10">
           <button 
             onClick={toggleSidebar}
-            className="p-2 bg-slate-50 border border-slate-200 rounded-md hover:bg-slate-100 text-slate-500 transition-colors w-full flex justify-center"
+            className="w-full h-full bg-white hover:bg-slate-50 border border-transparent rounded-md text-blue-500 transition-colors flex items-center justify-center shadow-sm"
           >
             {isOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
           </button>

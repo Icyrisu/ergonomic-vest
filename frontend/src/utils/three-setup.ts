@@ -52,11 +52,11 @@ export function initThreeModel(container: HTMLElement | null) {
         // Materials (Low Poly / Flat Shading)
         // ====================================================
         const gMat = new THREE.MeshPhongMaterial({
-            color: 0x7dd3fc, shininess: 50, flatShading: true,
+            color: 0x7d94fc, shininess: 50, flatShading: true,
             transparent: true, opacity: 0.65, emissive: 0x38bdf8, emissiveIntensity: 0.2
         });
         const jMat = new THREE.MeshPhongMaterial({
-            color: 0xbae6fd, shininess: 50, flatShading: true,
+            color: 0x7d94fc, shininess: 50, flatShading: true,
             transparent: true, opacity: 0.8, emissive: 0x7dd3fc, emissiveIntensity: 0.2
         });
 
@@ -74,7 +74,7 @@ export function initThreeModel(container: HTMLElement | null) {
 
         // --- Individual back material for color change ---
         const getBoneMat = () => new THREE.MeshPhongMaterial({
-            color: 0x7dd3fc, shininess: 50, flatShading: true,
+            color: 0x7d94fc, shininess: 50, flatShading: true,
             transparent: true, opacity: 0.65, emissive: 0x38bdf8, emissiveIntensity: 0.2
         });
 
@@ -314,6 +314,13 @@ export function initThreeModel(container: HTMLElement | null) {
             sp.position.set(0, 0.07, 0);
             grp.add(sp);
 
+            // Tag all meshes and sprites in this sensor group so they aren't hidden by "Show Character"
+            grp.traverse(child => {
+                if (child instanceof THREE.Mesh || child instanceof THREE.Sprite) {
+                    child.userData.isSensorMesh = true;
+                }
+            });
+
             sensors[id] = grp;
             sensorMeshes.push(grp);
         }
@@ -511,7 +518,8 @@ export function initThreeModel(container: HTMLElement | null) {
             toggleModel.addEventListener('change', (e) => {
                 const show = e.target.checked;
                 bones.root.traverse(child => {
-                    if ((child instanceof THREE.Mesh) && !child.userData.isLine) {
+                    // Only hide character meshes, do not hide sensor components or lines
+                    if ((child instanceof THREE.Mesh) && !child.userData.isLine && !child.userData.isSensorMesh) {
                         child.visible = show;
                     }
                 });

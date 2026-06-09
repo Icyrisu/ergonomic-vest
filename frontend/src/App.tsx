@@ -72,8 +72,8 @@ export default function App() {
         </div>
 
         {/* Footer - compact */}
-        <footer className="h-10 md:h-12 bg-white border-t border-slate-200 flex items-center justify-center shrink-0 px-4">
-          <p className="text-xs md:text-sm text-slate-400 text-center truncate">
+        <footer className="h-10 md:h-12 bg-gradient-to-r from-blue-500 to-cyan-400 flex items-center justify-center shrink-0 px-4 shadow-[0_-2px_10px_rgba(0,0,0,0.1)] z-10">
+          <p className="text-xs md:text-sm text-white text-center truncate font-medium tracking-wide">
             University of Muhammadiyah Jakarta &mdash; Ergonomic Vest Dashboard &copy; 2026
           </p>
         </footer>
