@@ -27,8 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
         controls.dampingFactor = 0.05;
         controls.target.set(0, 1.0, 0);
         
-        // Ubah konfigurasi tombol mouse:
-        // Klik Kiri = Rotate, Klik Tengah = Pan (Geser), Klik Kanan = Pan
+        // Change mouse buttons configuration:
+        // Left Click = Rotate, Middle/Right Click = Pan
         controls.mouseButtons = {
             LEFT: THREE.MOUSE.ROTATE,
             MIDDLE: THREE.MOUSE.PAN,
@@ -64,44 +64,55 @@ document.addEventListener('DOMContentLoaded', () => {
         // ====================================================
         const bones = {};
         
-        // Root tidak bergerak, kaki menempel di sini
+        // Root is static, legs attached here
         bones.root = new THREE.Group();
         scene.add(bones.root);
 
-        // --- Pelvis (bergerak saat sensor 9 pitch/roll, tapi tidak memutar kaki) ---
+        // --- Individual back material for color change ---
+        const getBoneMat = () => new THREE.MeshPhongMaterial({
+            color: 0x3b82f6, shininess: 30, flatShading: true,
+            transparent: true, opacity: 0.6
+        });
+
+        // --- Pelvis (moves with sensor 9 pitch/roll, does not rotate legs) ---
         bones.pelvis = new THREE.Group();
         bones.pelvis.position.set(0, 0.95, 0);
         bones.root.add(bones.pelvis);
         
+        bones.matPelvis = getBoneMat();
         let m;
-        // Lingkaran sendi diperkecil sedikit agar tidak offside/terlihat keluar dari cylinder
-        m = new THREE.Mesh(mkCyl(0.16, 0.16, 0.15), gMat); m.position.y = 0.075; bones.pelvis.add(m);
-        bones.pelvis.add(new THREE.Mesh(mkBall(0.14), jMat)); // Sendi tersembunyi
+        
+        m = new THREE.Mesh(mkCyl(0.16, 0.16, 0.15), bones.matPelvis); m.position.y = 0.075; bones.pelvis.add(m);
+        bones.pelvis.add(new THREE.Mesh(mkBall(0.14), jMat)); 
 
         // --- Spine 1, 2, 3 ---
         bones.spine1 = new THREE.Group(); bones.spine1.position.set(0, 0.15, 0); bones.pelvis.add(bones.spine1);
-        m = new THREE.Mesh(mkCyl(0.15, 0.16, 0.15), gMat); m.position.y = 0.075; bones.spine1.add(m);
+        bones.matSpine1 = getBoneMat();
+        m = new THREE.Mesh(mkCyl(0.15, 0.16, 0.15), bones.matSpine1); m.position.y = 0.075; bones.spine1.add(m);
         bones.spine1.add(new THREE.Mesh(mkBall(0.13), jMat));
 
         bones.spine2 = new THREE.Group(); bones.spine2.position.set(0, 0.15, 0); bones.spine1.add(bones.spine2);
-        m = new THREE.Mesh(mkCyl(0.15, 0.15, 0.15), gMat); m.position.y = 0.075; bones.spine2.add(m);
+        bones.matSpine2 = getBoneMat();
+        m = new THREE.Mesh(mkCyl(0.15, 0.15, 0.15), bones.matSpine2); m.position.y = 0.075; bones.spine2.add(m);
         bones.spine2.add(new THREE.Mesh(mkBall(0.13), jMat));
 
         bones.spine3 = new THREE.Group(); bones.spine3.position.set(0, 0.15, 0); bones.spine2.add(bones.spine3);
-        m = new THREE.Mesh(mkCyl(0.16, 0.15, 0.15), gMat); m.position.y = 0.075; bones.spine3.add(m);
+        bones.matSpine3 = getBoneMat();
+        m = new THREE.Mesh(mkCyl(0.16, 0.15, 0.15), bones.matSpine3); m.position.y = 0.075; bones.spine3.add(m);
         bones.spine3.add(new THREE.Mesh(mkBall(0.14), jMat));
 
         // --- Chest ---
         bones.chest = new THREE.Group(); bones.chest.position.set(0, 0.15, 0); bones.spine3.add(bones.chest);
-        m = new THREE.Mesh(mkCyl(0.17, 0.16, 0.15), gMat); m.position.y = 0.075; bones.chest.add(m);
+        bones.matChest = getBoneMat();
+        m = new THREE.Mesh(mkCyl(0.17, 0.16, 0.15), bones.matChest); m.position.y = 0.075; bones.chest.add(m);
         bones.chest.add(new THREE.Mesh(mkBall(0.15), jMat));
 
         // --- Neck & Head ---
         bones.neck = new THREE.Group(); bones.neck.position.set(0, 0.15, 0); bones.chest.add(bones.neck);
-        // Leher dipendekkan (tinggi 0.06 dari sebelumnya 0.10)
+        
         m = new THREE.Mesh(mkCyl(0.05, 0.06, 0.06), gMat); m.position.y = 0.03; bones.neck.add(m);
         bones.head = new THREE.Group(); bones.head.position.set(0, 0.06, 0); bones.neck.add(bones.head);
-        // Kepala dibesarkan agar proporsional (radius 0.15 dari sebelumnya 0.12)
+        
         m = new THREE.Mesh(mkBall(0.15), gMat); m.position.y = 0.12; bones.head.add(m);
 
         // --- Arms ---
@@ -110,68 +121,68 @@ document.addEventListener('DOMContentLoaded', () => {
             anchor.position.set(sign * 0.19, 0.10, 0);
             bones.chest.add(anchor);
 
-            // Dudukan khusus Pundak (visual sendi & penambat sensor yang akan diputar oleh S2/S3)
+            // Shoulder pad mount
             const shoulderPad = new THREE.Group();
             anchor.add(shoulderPad);
-            shoulderPad.add(new THREE.Mesh(mkBall(0.045), jMat)); // Sendi pundak
+            shoulderPad.add(new THREE.Mesh(mkBall(0.045), jMat)); 
 
-            // Lengan atas tertambat ke anchor statis (TIDAK ikut terputar oleh pergerakan pundak S2/S3)
+            // Upper arm attached to static anchor
             const upperArm = new THREE.Group(); 
             anchor.add(upperArm);
-            // Lengan atas dipertebal
+            
             m = new THREE.Mesh(mkCyl(0.075, 0.07, 0.28), gMat); m.position.y = -0.14; upperArm.add(m);
 
             const elbow = new THREE.Group(); elbow.position.set(0, -0.28, 0); upperArm.add(elbow);
-            elbow.add(new THREE.Mesh(mkBall(0.07), jMat)); // Siku membesar
+            elbow.add(new THREE.Mesh(mkBall(0.07), jMat)); 
 
             const forearm = new THREE.Group(); elbow.add(forearm);
-            // Lengan bawah dipertebal
+            
             m = new THREE.Mesh(mkCyl(0.07, 0.065, 0.26), gMat); m.position.y = -0.13; forearm.add(m);
 
             const hand = new THREE.Group(); hand.position.set(0, -0.26, 0); forearm.add(hand);
-            hand.add(new THREE.Mesh(mkBall(0.075), jMat)); // Tangan diperbesar signifikan
+            hand.add(new THREE.Mesh(mkBall(0.075), jMat)); 
 
             return { anchor, shoulderPad, upperArm, elbow, forearm, hand };
         }
         const lArm = buildArm(-1);
         const rArm = buildArm(+1);
         
-        // Expose lShoulder/rShoulder sebagai shoulderPad (Pundak) saja
+        // Expose lShoulder/rShoulder as shoulderPad only
         bones.lShoulder = lArm.shoulderPad; 
         bones.rShoulder = rArm.shoulderPad;
 
-        // --- Legs (Diikat ke Root agar menempel di tanah saat punggung bungkuk) ---
+        // --- Legs (Bound to Root to stay grounded during back bending) ---
         const hips = new THREE.Group();
         hips.position.set(0, 0.95, 0);
         bones.root.add(hips);
 
         function buildLeg(sign) {
-            // Jarak pinggul sedikit dilebarkan agar kaki tebal tidak saling menembus
+            
             const hip = new THREE.Group(); hip.position.set(sign * 0.12, 0, 0); hips.add(hip);
             hip.add(new THREE.Mesh(mkBall(0.08), jMat));
 
-            // Paha dibuat tebal layaknya wooden dummy
+            
             const thigh = new THREE.Group(); hip.add(thigh);
             m = new THREE.Mesh(mkCyl(0.10, 0.09, 0.42), gMat); m.position.y = -0.21; thigh.add(m);
 
             const knee = new THREE.Group(); knee.position.set(0, -0.42, 0); thigh.add(knee);
             knee.add(new THREE.Mesh(mkBall(0.085), jMat));
 
-            // Betis ditebalkan
+            
             const shin = new THREE.Group(); knee.add(shin);
             m = new THREE.Mesh(mkCyl(0.09, 0.08, 0.47), gMat); m.position.y = -0.235; shin.add(m);
 
             const ankle = new THREE.Group(); ankle.position.set(0, -0.47, 0); shin.add(ankle);
             ankle.add(new THREE.Mesh(mkBall(0.075), jMat));
             
-            // Telapak kaki diperlebar
+            
             const foot = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.22), gMat);
             foot.position.set(0, -0.03, 0.05); ankle.add(foot);
         }
         buildLeg(-1); buildLeg(+1);
 
-        // --- Pose: Telapak Tangan Menyatu ke Depan ---
-        // Lengan mengarah ke depan tengah (pose ini statis di anchor lengan)
+        // --- Pose: Hands clasped forward ---
+        // Arms pointing forward-center (static pose)
         lArm.anchor.rotation.z = 0.2;
         lArm.upperArm.rotation.x = -1.2;
         lArm.upperArm.rotation.z = 0.45;
@@ -187,19 +198,33 @@ document.addEventListener('DOMContentLoaded', () => {
         window.mannequinBones = bones;
 
         // ====================================================
-        // Impact Wrench (Dipegang dengan benar di tengah kedua tangan)
+        // Impact Wrench (Held correctly between both hands)
         // ====================================================
         const wrench = new THREE.Group();
-        const wMat = new THREE.MeshPhongMaterial({ color: 0x374151, flatShading: true, transparent: true, opacity: 0.5 });
-        const wNoseMat = new THREE.MeshPhongMaterial({ color: 0x6b7280, flatShading: true, transparent: true, opacity: 0.5 });
+        // Default OFF (Transparent Red)
+        const wMat = new THREE.MeshPhongMaterial({ color: 0xef4444, flatShading: true, transparent: true, opacity: 0.5 });
+        const wNoseMat = new THREE.MeshPhongMaterial({ color: 0xb91c1c, flatShading: true, transparent: true, opacity: 0.5 });
 
-        // Origin Wrench dipindah ke "Gagang"
+        // Global function to change drill color (Called from app.js)
+        window.updateWrenchState = (isOn) => {
+            if (isOn) {
+                // Transparent Green if ON
+                wMat.color.setHex(0x22c55e);
+                wNoseMat.color.setHex(0x16a34a);
+            } else {
+                // Transparent Red if OFF
+                wMat.color.setHex(0xef4444);
+                wNoseMat.color.setHex(0xb91c1c);
+            }
+        };
+
+        // Wrench origin moved to Handle
         const handle = new THREE.Mesh(mkCyl(0.025, 0.02, 0.14), wMat);
         handle.position.set(0, 0, 0); 
         wrench.add(handle);
 
         const housing = new THREE.Mesh(mkCyl(0.045, 0.05, 0.22), wMat);
-        housing.rotation.x = Math.PI / 2; // PUTAR SUMBU X AGAR MENGHADAP DEPAN (Z)
+        housing.rotation.x = Math.PI / 2; // ROTATE X AXIS TO FACE FRONT (Z)
         housing.position.set(0, 0.08, 0.05); 
         wrench.add(housing);
 
@@ -208,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nose.position.set(0, 0.08, 0.20); 
         wrench.add(nose);
 
-        // Pasang bor di dada agar arah menunjuk lurus absolut tanpa terpengaruh kemiringan sendi siku/bahu
+        // Attach drill to chest for absolute straight direction
         wrench.position.set(0, 0.08, 0.42); 
         wrench.rotation.set(0, 0, 0); 
         bones.chest.add(wrench);
@@ -229,11 +254,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const c = document.createElement('canvas');
             c.width = 72; c.height = 72;
             const ctx = c.getContext('2d');
-            // Digambar putih murni agar warnanya bisa diubah secara dinamis melalui material.color
+            
             ctx.fillStyle = '#ffffff'; 
             ctx.beginPath(); ctx.arc(36, 36, 34, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 3; ctx.stroke();
-            // Teks hitam agar tetap terlihat tajam saat background lingkaran diwarnai hijau/merah
+            
             ctx.fillStyle = '#0f172a'; ctx.font = 'bold 36px Arial';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(id, 36, 38);
@@ -241,10 +266,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const sp = new THREE.Sprite(new THREE.SpriteMaterial({ 
                 map: new THREE.CanvasTexture(c), 
                 depthTest: false,
-                color: 0x22c55e // Default warna saat pertama dimuat: Hijau Lurus
+                color: 0x22c55e 
             }));
             sp.scale.set(0.12, 0.12, 1);
-            sp.position.set(0, 0, 0); // Tepat di koordinat dot, tidak ada offset samping
+            sp.position.set(0, 0, 0); 
             grp.add(sp);
             
             sensors[id] = grp;
@@ -252,73 +277,96 @@ document.addEventListener('DOMContentLoaded', () => {
 
         addSensor(bones.rShoulder, '2', new THREE.Vector3( 0.06, 0, -0.07));
         addSensor(bones.lShoulder, '3', new THREE.Vector3(-0.06, 0, -0.07));
-        // Sensor ditempelkan tepat ke tulang punggung bawah & pelvis agar proporsional
+        // Sensors attached directly to lower spine & pelvis
         addSensor(bones.chest,  '5', new THREE.Vector3(0, 0.075, -0.18));
         addSensor(bones.spine2, '7', new THREE.Vector3(0, 0.075, -0.17));
         addSensor(bones.spine1, '8', new THREE.Vector3(0, 0.075, -0.17));
         addSensor(bones.pelvis, '9', new THREE.Vector3(0, 0.075, -0.17));
 
-        // Garis sensor diganti menjadi silinder tebal agar linewidth bisa terlihat jelas
+        // Shoulder line remains straight
         const linkGeo = new THREE.CylinderGeometry(0.015, 0.015, 1, 6);
         const linkMat = new THREE.MeshBasicMaterial({ color: 0x22c55e }); 
         const lines = {
             '2-5': new THREE.Mesh(linkGeo, linkMat.clone()),
-            '3-5': new THREE.Mesh(linkGeo, linkMat.clone()),
-            '5-7': new THREE.Mesh(linkGeo, linkMat.clone()),
-            '7-8': new THREE.Mesh(linkGeo, linkMat.clone()),
-            '8-9': new THREE.Mesh(linkGeo, linkMat.clone())
+            '3-5': new THREE.Mesh(linkGeo, linkMat.clone())
         };
         for (const k in lines) {
-            lines[k].userData.isLine = true; // Penanda agar tidak disembunyikan oleh checkbox
+            lines[k].userData.isLine = true; // Marker so it's not hidden by checkbox
             scene.add(lines[k]);
         }
 
-        const colorGreen = new THREE.Color(0x22c55e); // Lurus = Hijau
-        const colorRed = new THREE.Color(0xef4444);   // Bungkuk = Merah
+        // Curve mesh for smooth spine
+        const curveMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+        let curveMesh = new THREE.Mesh(new THREE.BufferGeometry(), curveMat);
+        curveMesh.userData.isLine = true;
+        scene.add(curveMesh);
+
+        const colorGreen = new THREE.Color(0x22c55e); // Straight = Green
+        const colorYellow = new THREE.Color(0xeab308); // Slightly bent = Yellow
+        const colorOrange = new THREE.Color(0xf97316); // Bent = Orange
+        const colorRed = new THREE.Color(0xef4444);   // Very bent = Red
+
+        function getGradientColor(f) {
+            if (f < 0.33) return colorGreen.clone().lerp(colorYellow, f / 0.33);
+            if (f < 0.66) return colorYellow.clone().lerp(colorOrange, (f - 0.33) / 0.33);
+            return colorOrange.clone().lerp(colorRed, (f - 0.66) / 0.34);
+        }
 
         function updateSensorLines() {
             const wp = (id) => { const v = new THREE.Vector3(); sensors[id].getWorldPosition(v); return v; };
             const p2=wp('2'), p3=wp('3'), p5=wp('5'), p7=wp('7'), p8=wp('8'), p9=wp('9');
             
-            // Mengukur "sudut lengkung" aktual dari garis yang dibentuk oleh titik-titik sensor (5, 7, 8, 9)
-            // Menggunakan vektor antar titik untuk mengetahui seberapa melengkung garisnya di ruang 3D
+            // Measure actual "curve angle" from lines formed by sensor points (5, 7, 8, 9)
             const v1 = new THREE.Vector3().subVectors(p5, p7).normalize();
             const v2 = new THREE.Vector3().subVectors(p7, p8).normalize();
             const v3 = new THREE.Vector3().subVectors(p8, p9).normalize();
             
-            // Total sudut lekukan dalam radian (Jika lurus tegak, sudutnya 0)
+            // Total curve angle in radians
             const totalCurveAngle = v1.angleTo(v2) + v2.angleTo(v3);
                                
-            // Semakin melengkung kurva 5-7-8-9 nya, warnanya bertransisi mulus ke merah 
-            // (Maksimal merah saat total lengkungan kurva mencapai 0.35 radian / ~20 derajat)
+            // The more curved the 5-7-8-9 points, the smoother the transition to red 
             const bendFactor = Math.min(1, totalCurveAngle / 0.35);
+            const targetColor = getGradientColor(bendFactor);
 
-            // Warnai semua garis dengan bendFactor
+            // Update UI Panel for "Total Curve"
+            const uiCurve = document.getElementById('val-curve');
+            if (uiCurve) {
+                const angleDeg = totalCurveAngle * (180 / Math.PI);
+                uiCurve.innerText = angleDeg.toFixed(2) + '°';
+                uiCurve.style.color = '#' + targetColor.getHexString();
+            }
+
+            // Color all sensor dots
+            ['2', '3', '5', '7', '8', '9'].forEach(id => {
+                if (sensors[id] && sensors[id].children[0]) {
+                    sensors[id].children[0].material.color.copy(targetColor);
+                }
+            });
+
+            // Update straight line from shoulder to chest
             function placeCyl(mesh, pA, pB) {
                 const dist = pA.distanceTo(pB);
                 if (dist < 0.001) return;
                 mesh.position.copy(pA).lerp(pB, 0.5);
                 mesh.scale.set(1, dist, 1);
                 mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pB.clone().sub(pA).normalize());
-                mesh.material.color.lerpColors(colorGreen, colorRed, bendFactor);
+                mesh.material.color.copy(targetColor);
             }
-
-            // Warnai semua dot sensor dengan bendFactor yang sama
-            ['2', '3', '5', '7', '8', '9'].forEach(id => {
-                if (sensors[id] && sensors[id].children[0]) {
-                    sensors[id].children[0].material.color.lerpColors(colorGreen, colorRed, bendFactor);
-                }
-            });
-
             placeCyl(lines['2-5'], p2, p5);
             placeCyl(lines['3-5'], p3, p5);
-            placeCyl(lines['5-7'], p5, p7);
-            placeCyl(lines['7-8'], p7, p8);
-            placeCyl(lines['8-9'], p8, p9);
+
+            // Update curved back (9 -> 8 -> 7 -> 5)
+            const curve = new THREE.CatmullRomCurve3([p9, p8, p7, p5]);
+            curve.tension = 0.5; // Adjust curve smoothness
+            
+            if (curveMesh.geometry) curveMesh.geometry.dispose();
+            curveMesh.geometry = new THREE.TubeGeometry(curve, 20, 0.015, 6, false);
+            curveMesh.material.color.copy(targetColor);
         }
 
+
         // ====================================================
-        // ViewCube (Dikembalikan ke 27 potong, ujung bisa diklik, teks dibesarkan)
+        // ViewCube
         // ====================================================
         const CUBE_SZ = 100;
         const CUBE_PD = 16;
@@ -350,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cx = cv.getContext('2d');
             cx.clearRect(0,0,512,512);
             cx.fillStyle = '#1e3a5f';
-            cx.font = 'bold 122px Arial'; // Teks raksasa
+            cx.font = 'bold 122px Arial'; 
             cx.textAlign = 'center'; cx.textBaseline = 'middle';
             cx.fillText(text, 256, 256);
             return new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false });
@@ -378,7 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Overlay text besar menutupi grid kecil
+        
         const tGeo = new THREE.PlaneGeometry(pS*3, pS*3);
         const tDist = pS*1.5 + 0.05; 
         const tData = [
@@ -395,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
             mesh.rotation.set(...d.r);
             cubeGrp.add(mesh);
         });
-        // Garis batas tepi rubik
+        
         cubeGrp.add(new THREE.LineSegments(
             new THREE.EdgesGeometry(new THREE.BoxGeometry(pS*3, pS*3, pS*3)),
             new THREE.LineBasicMaterial({ color: 0x94a3b8 })

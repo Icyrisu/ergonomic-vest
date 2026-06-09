@@ -1,22 +1,47 @@
 services:
+  database:
+    container_name: ev-database
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
   backend:
-    container_name: ergonomic-vest-backend
+    container_name: ev-backend
     build:
       context: ./backend
     ports:
-      - "3000:3000"
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
     volumes:
       - ./backend:/app
       - /app/node_modules
     restart: unless-stopped
     environment:
       - NODE_ENV=development
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
+      - MQTT_BROKER=${MQTT_BROKER}
+      - PORT=${BACKEND_PORT}
+    depends_on:
+      - database
 
   frontend:
-    container_name: ergonomic-vest-frontend
+    container_name: ev-frontend
     image: nginx:alpine
     ports:
       - "8080:80"
+    environment:
+      - BACKEND_API_URL=http://localhost:${BACKEND_PORT}
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
     restart: unless-stopped
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

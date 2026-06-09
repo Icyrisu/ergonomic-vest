@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ergonomic Vest Dashboard | UMJ</title>
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=10">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -13,7 +13,7 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <span class="brand-text">Ergonomic Vest</span>
-                <span class="brand-icon" style="display: none;">EV</span>
+                <span class="brand-icon brand-icon-hidden">EV</span>
             </div>
             
             <nav class="sidebar-nav">
@@ -49,15 +49,20 @@
         <!-- Main Content -->
         <main class="main-content">
             <!-- Topbar -->
-            <header class="topbar" style="justify-content: space-between;">
-                <!-- MQTT Status di Kiri -->
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 14px; font-weight: 600; color: #475569;">MQTT Status:</span>
+            <header class="topbar">
+                <!-- MQTT Status -->
+                <div class="topbar-left">
+                    <button id="mobile-menu-btn" class="mobile-menu-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                    <span class="mqtt-label">MQTT Status:</span>
                     <span id="mqtt-status" class="badge badge-danger">OFFLINE</span>
                 </div>
 
                 <div class="topbar-right">
-                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIyMCIgZmlsbD0iI2U2ZjRjYyIvPjx0ZXh0IHg9IjIwIiB5PSIyNSIgZm9udC1zaXplPSIxNiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzMzMyI+TG9nbzwvdGV4dD48L3N2Zz4=" alt="Logo" class="logo">
+                    <img src="assets/logo.png" alt="Logo" class="logo" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIyMCIgZmlsbD0iI2U2ZjRjYyIvPjx0ZXh0IHg9IjIwIiB5PSIyNSIgZm9udC1zaXplPSIxNiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzMzMyI+TG9nbzwvdGV4dD48L3N2Zz4='">
                 </div>
             </header>
 
@@ -72,23 +77,47 @@
                         <h2>Posture Detection</h2>
                     </div>
                     <div class="cards-grid cols-2">
-                        <div class="card" style="display: flex; flex-direction: column;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                                <h3 style="margin: 0;">Sensor Visualization</h3>
-                                <label style="display:flex; align-items:center; gap:8px; font-size:14px; cursor:pointer; color:#475569;">
+                        <div class="card sensor-card">
+                            <div class="card-header-flex">
+                                <h3>Sensor Visualization</h3>
+                                <label class="toggle-label">
                                     <input type="checkbox" id="toggle-model" checked> Show Model
                                 </label>
                             </div>
-                            <div class="stickman-container" style="flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; background: #f8fafc; border-radius: 8px; padding: 0; overflow: hidden; min-height: 400px; position: relative;">
-                                <div id="three-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></div>
+                            <div class="stickman-container">
+                                <div id="three-container"></div>
                             </div>
                         </div>
+                        
+                        <!-- System Monitoring Card -->
+                        <div class="card">
+                            <h3>System Monitoring</h3>
+                            <div class="card-body">
+                                <p class="section-title">Real-time Angles</p>
+                                <div class="angles-grid">
+                                    <div><strong>S2 (L. Arm):</strong> <span id="val-s2">P:0&deg; R:0&deg;</span></div>
+                                    <div><strong>S3 (R. Arm):</strong> <span id="val-s3">P:0&deg; R:0&deg;</span></div>
+                                    <div><strong>S5 (Chest):</strong> <span id="val-s5">P:-90&deg; R:0&deg;</span></div>
+                                    <div><strong>S7 (Mid Back):</strong> <span id="val-s7">P:-90&deg; R:0&deg;</span></div>
+                                    <div><strong>S8 (Low Back):</strong> <span id="val-s8">P:-90&deg; R:0&deg;</span></div>
+                                    <div><strong>S9 (Pelvis):</strong> <span id="val-s9">P:-90&deg; R:0&deg;</span></div>
+                                    <div class="total-curve-row">
+                                        <strong>Total Bungkuk (Curve 5-9):</strong> <span id="val-curve" class="val-curve">0.00&deg;</span>
+                                    </div>
+                                </div>
+
+                                <p class="section-title">Impact Wrench Control</p>
+                                <div class="control-buttons">
+                                    <button id="btn-wrench-on" class="btn-control btn-success">Turn ON</button>
+                                    <button id="btn-wrench-off" class="btn-control btn-danger">Turn OFF</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Data History View -->
-                <div id="history-view" class="view" style="display: none;">
+                <div id="history-view" class="view">
                     <div class="view-header">
                         <svg class="view-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
@@ -103,47 +132,16 @@
                                     <thead>
                                         <tr>
                                             <th>Timestamp</th>
+                                            <th>Topic (Sensor)</th>
                                             <th>Roll Angle</th>
                                             <th>Pitch Angle</th>
                                             <th>Status</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody id="history-table-body">
+                                        <!-- Rows will be populated dynamically via API -->
                                         <tr>
-                                            <td>2026-06-04 10:00:00</td>
-                                            <td>12.5&deg;</td>
-                                            <td>-4.2&deg;</td>
-                                            <td><span class="badge badge-safe">Safe</span></td>
-                                        </tr>
-                                        <tr>
-                                            <td>2026-06-04 10:05:00</td>
-                                            <td>15.1&deg;</td>
-                                            <td>-2.0&deg;</td>
-                                            <td><span class="badge badge-warning">Warning</span></td>
-                                        </tr>
-                                        <tr>
-                                            <td>2026-06-04 10:10:00</td>
-                                            <td>22.4&deg;</td>
-                                            <td>1.5&deg;</td>
-                                            <td><span class="badge badge-danger">Danger</span></td>
-                                        </tr>
-                                        <tr>
-                                            <td>2026-06-04 10:15:00</td>
-                                            <td>10.2&deg;</td>
-                                            <td>-5.1&deg;</td>
-                                            <td><span class="badge badge-safe">Safe</span></td>
-                                        </tr>
-                                        <tr>
-                                            <td>2026-06-04 10:20:00</td>
-                                            <td>11.0&deg;</td>
-                                            <td>-3.0&deg;</td>
-                                            <td><span class="badge badge-safe">Safe</span></td>
-                                        </tr>
-                                        <tr>
-                                            <td>2026-06-04 10:25:00</td>
-                                            <td>13.4&deg;</td>
-                                            <td>-1.5&deg;</td>
-                                            <td><span class="badge badge-safe">Safe</span></td>
+                                            <td colspan="5" class="loading-row">Loading data...</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -160,9 +158,8 @@
     </div>
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-    <!-- Scripts -->
-    <script src="app.js?v=5"></script>
-    <script src="three-setup.js?v=5"></script>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="app.js?v=10"></script>
+    <script src="three-setup.js?v=10"></script>
 </body>
 </html>

@@ -23,8 +23,46 @@ client.on('connect', () => {
     });
 });
 
+const db = require('./db');
+
+let ioInstance = null;
+
 client.on('message', (topic, message) => {
-    console.log(`[MQTT Backend] ${topic}: ${message.toString()}`);
+    try {
+        const payload = JSON.parse(message.toString());
+        
+        // Handle Wrench Status Updates
+        if (topic === 'UMJ/EV/WR' && payload.value) {
+            if (ioInstance) {
+                ioInstance.emit('wrench_status', payload.value === 'ON');
+            }
+            return;
+        }
+        
+        if (payload.pitch !== undefined && payload.roll !== undefined) {
+            const pitch = parseFloat(payload.pitch);
+            const roll = parseFloat(payload.roll);
+            
+            // Determine posture status based on pitch (assuming -90 is upright, 0 is bent forward)
+            let status = 'Safe';
+            if (pitch > -45) {
+                status = 'Danger';
+            } else if (pitch > -60) {
+                status = 'Warning';
+            }
+            
+            // NOTE: The user requested NOT to save data yet.
+            // Insert into Postgres
+            // db.insertSensorData(topic, pitch, roll, status);
+            
+            if (ioInstance) {
+                ioInstance.emit('sensor_data', { topic, pitch, roll, status });
+            }
+        }
+    } catch (err) {
+        // Not JSON or missing fields
+        console.log(`[MQTT Backend] ${topic}: ${message.toString()}`);
+    }
 });
 
 client.on('offline', () => {
@@ -39,5 +77,11 @@ client.on('error', (err) => {
 
 module.exports = {
     getStatus: () => isConnected,
-    client: client
+    client: client,
+    setSocketIo: (io) => { ioInstance = io; },
+    publishWrench: (value) => {
+        if (isConnected) {
+            client.publish('UMJ/EV/WR', JSON.stringify({ value: value }));
+        }
+    }
 };
