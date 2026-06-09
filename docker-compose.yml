@@ -32,13 +32,15 @@ services:
 
   frontend:
     container_name: ev-frontend
-    image: nginx:alpine
+    build:
+      context: ./frontend
     ports:
-      - "8080:80"
+      - "8080:5173"
     environment:
-      - BACKEND_API_URL=http://localhost:${BACKEND_PORT}
+      - BACKEND_API_URL=http://backend:${BACKEND_PORT}
     volumes:
-      - ./frontend:/usr/share/nginx/html:ro
+      - ./frontend:/app
+      - /app/node_modules
     restart: unless-stopped
     depends_on:
       - backend
