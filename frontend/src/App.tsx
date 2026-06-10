@@ -12,14 +12,20 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [mqttStatus, setMqttStatus] = useState<string>('OFFLINE');
+  const [mqttStatus, setMqttStatus] = useState<string>('CONNECTING');
 
   useEffect(() => {
-    const newSocket = io(SOCKET_URL);
+    // autoConnect: false — sambungkan manual supaya bisa handle error gracefully
+    const newSocket = io(SOCKET_URL, {
+      reconnectionAttempts: 5,
+      timeout: 5000,
+    });
     setSocket(newSocket);
 
     newSocket.on('connect', () => { setMqttStatus('ONLINE'); });
     newSocket.on('disconnect', () => { setMqttStatus('OFFLINE'); });
+    // Saat offline / server tidak ada — tidak crash, cukup OFFLINE
+    newSocket.on('connect_error', () => { setMqttStatus('OFFLINE'); });
 
     return () => { newSocket.close(); };
   }, []);
@@ -56,7 +62,11 @@ export default function App() {
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
             <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 md:px-3 md:py-1.5 rounded-lg border border-slate-200">
               <span className="text-xs font-medium text-slate-600 hidden sm:inline">Status:</span>
-              <span className={`badge text-xs ${mqttStatus === 'ONLINE' ? 'badge-safe' : 'badge-danger'}`}>
+              <span className={`badge text-xs ${
+                mqttStatus === 'ONLINE' ? 'badge-safe' :
+                mqttStatus === 'CONNECTING' ? 'badge-warning' :
+                'badge-danger'
+              }`}>
                 {mqttStatus}
               </span>
             </div>
