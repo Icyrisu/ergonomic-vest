@@ -5,6 +5,10 @@ require('dotenv').config();
 const brokerUrl = process.env.MQTT_BROKER || 'wss://broker.hivemq.com:8884/mqtt';
 let isConnected = false;
 
+// In-memory state for session recording
+let currentWrenchStatus = 'OFF';
+let latestSensorData = {};
+
 console.log('Starting MQTT Client connecting to:', brokerUrl);
 const client = mqtt.connect(brokerUrl);
 
@@ -33,8 +37,9 @@ client.on('message', (topic, message) => {
         
         // Handle Wrench Status Updates
         if (topic === 'UMJ/EV/WR' && payload.value) {
+            currentWrenchStatus = payload.value; // 'ON' or 'OFF'
             if (ioInstance) {
-                ioInstance.emit('wrench_status', payload.value === 'ON');
+                ioInstance.emit('wrench_status', currentWrenchStatus === 'ON');
             }
             return;
         }
@@ -51,9 +56,8 @@ client.on('message', (topic, message) => {
                 status = 'Warning';
             }
             
-            // NOTE: The user requested NOT to save data yet.
-            // Insert into Postgres
-            // db.insertSensorData(topic, pitch, roll, status);
+            // Store latest data
+            latestSensorData[topic] = { pitch, roll, status };
             
             if (ioInstance) {
                 ioInstance.emit('sensor_data', { topic, pitch, roll, status });
@@ -77,10 +81,14 @@ client.on('error', (err) => {
 
 module.exports = {
     getStatus: () => isConnected,
+    getWrenchStatus: () => currentWrenchStatus,
+    getLatestSensorData: () => latestSensorData,
     client: client,
     setSocketIo: (io) => { ioInstance = io; },
     publishWrench: (value) => {
         if (isConnected) {
+            // Also update local state so it's immediate
+            currentWrenchStatus = value;
             client.publish('UMJ/EV/WR', JSON.stringify({ value: value }));
         }
     }

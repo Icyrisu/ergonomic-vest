@@ -10,6 +10,16 @@ interface DashboardProps {
 export default function Dashboard({ socket }: DashboardProps) {
   const [wrenchStatus, setWrenchStatus] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isStopModalOpen, setIsStopModalOpen] = useState<boolean>(false);
+  const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
+  
+  // Form States
+  const [sessionName, setSessionName] = useState('');
+  const [workerName, setWorkerName] = useState('');
+  const [workerId, setWorkerId] = useState('');
+  const [groupName, setGroupName] = useState('');
+  const [formError, setFormError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // We can track individual sensor data if needed, but three-setup handles the 3D model directly
   // We'll just manage the Socket connection here
@@ -88,6 +98,13 @@ export default function Dashboard({ socket }: DashboardProps) {
         // Spine sensors: store pitch then recalculate differential targets
         spinePitch[sid] = data.pitch;
         updateSpineBones();
+        
+        // Update Total Curve Angle (S5 Chest - S9 Pelvis)
+        if (sid === 's5' || sid === 's9') {
+          const curve = Math.abs(spinePitch['s5'] - spinePitch['s9']);
+          const uiCurve = document.getElementById('val-curve');
+          if (uiCurve) uiCurve.innerHTML = `${curve.toFixed(2)}&deg;`;
+        }
       }
     };
 
@@ -98,14 +115,67 @@ export default function Dashboard({ socket }: DashboardProps) {
       }
     };
 
+    const handleSessionStatus = (isActive: boolean) => {
+      setIsSessionActive(isActive);
+    };
+
     socket.on('sensor_data', handleSensorData);
     socket.on('wrench_status', handleWrenchStatus);
+    socket.on('session_status', handleSessionStatus);
+
+    // Request initial status when component mounts
+    socket.emit('request_session_status');
 
     return () => {
       socket.off('sensor_data', handleSensorData);
       socket.off('wrench_status', handleWrenchStatus);
+      socket.off('session_status', handleSessionStatus);
     };
   }, [socket]);
+
+  const handleStartSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    setIsSubmitting(true);
+    
+    try {
+      const response = await fetch('/api/sessions/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_name: sessionName,
+          name: workerName,
+          id: workerId,
+          group: groupName
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to start session');
+      }
+      
+      setIsModalOpen(false);
+      setSessionName('');
+      setWorkerName('');
+      setWorkerId('');
+      setGroupName('');
+    } catch (err: any) {
+      setFormError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStopSession = async () => {
+    try {
+      await fetch('/api/sessions/stop', { method: 'POST' });
+      setIsStopModalOpen(false);
+    } catch (err) {
+      console.error('Failed to stop session', err);
+    }
+  };
 
   const turnWrenchOn = () => {
     if (socket) socket.emit('wrench_control', { value: 'ON' });
@@ -153,18 +223,28 @@ export default function Dashboard({ socket }: DashboardProps) {
       </div>
 
       {/* Controls Section (Right Side) */}
-      <div className="lg:flex-1 min-w-0 flex flex-col gap-3 lg:min-h-0 lg:overflow-y-auto">
+      <div className="lg:flex-1 min-w-0 flex flex-col gap-5 bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 lg:min-h-0 overflow-y-auto">
         
         {/* Main Action Button */}
-        <button 
-          onClick={() => setIsModalOpen(true)} 
-          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-500/30 text-base tracking-wide shrink-0"
-        >
-          START SESSION
-        </button>
+        {!isSessionActive ? (
+          <button 
+            onClick={() => setIsModalOpen(true)} 
+            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-500/30 text-base tracking-wide shrink-0"
+          >
+            START SESSION
+          </button>
+        ) : (
+          <button 
+            onClick={() => setIsStopModalOpen(true)} 
+            className="w-full py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-red-500/30 text-base tracking-wide shrink-0 flex items-center justify-center gap-2 animate-pulse"
+          >
+            <div className="w-3 h-3 bg-white rounded-full"></div>
+            STOP SESSION
+          </button>
+        )}
 
         {/* Real-time Angles */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 shrink-0">
+        <div className="shrink-0 flex flex-col">
           <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2">Angle Values</h3>
           
           <div className="flex justify-between items-center bg-slate-800 text-white p-4 rounded-xl mb-3 shadow-md">
@@ -188,7 +268,7 @@ export default function Dashboard({ socket }: DashboardProps) {
         </div>
 
         {/* Impact Wrench Control */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 shrink-0">
+        <div className="shrink-0 flex flex-col">
           <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2">Impact Wrench</h3>
           <div className="flex flex-col gap-3 py-1">
             {/* Status Display matching Total Curve Angle style */}
@@ -196,7 +276,7 @@ export default function Dashboard({ socket }: DashboardProps) {
               <div>
                 <p className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-0.5">Current Status</p>
                 <p className={`text-2xl font-bold ${wrenchStatus ? 'text-green-400' : 'text-red-400'}`}>
-                  {wrenchStatus ? 'ONLINE' : 'OFFLINE'}
+                  {wrenchStatus ? 'ON' : 'OFF'}
                 </p>
               </div>
               <div className="p-3 bg-slate-700 rounded-lg shadow-inner border border-slate-600/50 flex items-center justify-center">
@@ -219,32 +299,108 @@ export default function Dashboard({ socket }: DashboardProps) {
             </div>
             
             <div className="p-6">
-              <form onSubmit={(e) => { 
-                e.preventDefault(); 
-                // handle start session logic here later
-                setIsModalOpen(false); 
-              }}>
-                {/* Form fields placeholder */}
-                <div className="min-h-[120px] flex items-center justify-center border-2 border-dashed border-slate-200 rounded-xl mb-6 bg-slate-50">
-                  <span className="text-slate-400 text-sm font-medium">Form fields will be added here</span>
+              <form onSubmit={handleStartSession}>
+                {formError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">
+                    {formError}
+                  </div>
+                )}
+                
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">SESSION NAME</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={sessionName}
+                      onChange={(e) => setSessionName(e.target.value)}
+                      placeholder="e.g., Session-001"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">NAME</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={workerName}
+                      onChange={(e) => setWorkerName(e.target.value)}
+                      placeholder="Worker name"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">ID</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={workerId}
+                      onChange={(e) => setWorkerId(e.target.value)}
+                      placeholder="Worker ID number"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">GROUP <span className="text-slate-400 font-normal">(Optional)</span></label>
+                    <input 
+                      type="text" 
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      placeholder="Group / Department"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors outline-none"
+                    />
+                  </div>
                 </div>
                 
                 <div className="flex gap-3 justify-end pt-2">
                   <button 
                     type="button" 
                     onClick={() => setIsModalOpen(false)}
-                    className="px-5 py-2.5 font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                    disabled={isSubmitting}
+                    className="px-5 py-2.5 font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button 
                     type="submit"
-                    className="px-6 py-2.5 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-95"
+                    disabled={isSubmitting}
+                    className="px-6 py-2.5 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50"
                   >
-                    Start
+                    {isSubmitting ? 'Starting...' : 'Start'}
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Stop Session Modal */}
+      {isStopModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100">
+            <div className="p-5 border-b border-slate-100 bg-red-50/50">
+              <h2 className="text-xl font-bold text-red-600">Stop Session?</h2>
+            </div>
+            
+            <div className="p-6">
+              <p className="text-slate-600 mb-6 text-sm">
+                Are you sure you want to stop the current recording session? The recorded data will be saved.
+              </p>
+              
+              <div className="flex gap-3 justify-end">
+                <button 
+                  onClick={() => setIsStopModalOpen(false)}
+                  className="px-5 py-2.5 font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleStopSession}
+                  className="px-6 py-2.5 font-bold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all shadow-md shadow-red-500/20 active:scale-95"
+                >
+                  Stop Recording
+                </button>
+              </div>
             </div>
           </div>
         </div>
