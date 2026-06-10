@@ -9,6 +9,7 @@ interface DashboardProps {
 
 export default function Dashboard({ socket }: DashboardProps) {
   const [wrenchStatus, setWrenchStatus] = useState<boolean>(false);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   // We can track individual sensor data if needed, but three-setup handles the 3D model directly
   // We'll just manage the Socket connection here
@@ -154,6 +155,14 @@ export default function Dashboard({ socket }: DashboardProps) {
       {/* Controls Section (Right Side) */}
       <div className="lg:flex-1 min-w-0 flex flex-col gap-3 lg:min-h-0 lg:overflow-y-auto">
         
+        {/* Main Action Button */}
+        <button 
+          onClick={() => setIsModalOpen(true)} 
+          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-500/30 text-base tracking-wide shrink-0"
+        >
+          START SESSION
+        </button>
+
         {/* Real-time Angles */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 shrink-0">
           <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2">Angle Values</h3>
@@ -195,21 +204,51 @@ export default function Dashboard({ socket }: DashboardProps) {
                 <div className={`w-4 h-4 rounded-full ${wrenchStatus ? 'bg-green-400' : 'bg-red-400'}`}></div>
               </div>
             </div>
-            
-            {/* Control Buttons (Flat, no shadow) */}
-            <div className="flex gap-2 w-full mt-1">
-              <button onClick={turnWrenchOn} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold transition-colors active:scale-95">
-                TURN ON
-              </button>
-              <button onClick={turnWrenchOff} className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors active:scale-95">
-                TURN OFF
-              </button>
-            </div>
           </div>
         </div>
 
       </div>
 
+      {/* Session Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+              <h2 className="text-xl font-bold text-slate-800">Start New Session</h2>
+              <p className="text-sm text-slate-500 mt-1">Please fill in the session details below.</p>
+            </div>
+            
+            <div className="p-6">
+              <form onSubmit={(e) => { 
+                e.preventDefault(); 
+                // handle start session logic here later
+                setIsModalOpen(false); 
+              }}>
+                {/* Form fields placeholder */}
+                <div className="min-h-[120px] flex items-center justify-center border-2 border-dashed border-slate-200 rounded-xl mb-6 bg-slate-50">
+                  <span className="text-slate-400 text-sm font-medium">Form fields will be added here</span>
+                </div>
+                
+                <div className="flex gap-3 justify-end pt-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-5 py-2.5 font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-6 py-2.5 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-95"
+                  >
+                    Start
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
