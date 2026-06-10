@@ -24,15 +24,36 @@ const db = require('./db');
 // ---------------------------------------------------------
 let activeSession = null;
 let recordInterval = null;
+let globalThreshold = 25; // default threshold, synced across all devices
+
+// Load threshold from DB on startup
+(async () => {
+    // wait a moment to ensure initDB has run
+    setTimeout(async () => {
+        globalThreshold = await db.getSetting('danger_limit', 25);
+    }, 1000);
+})();
 
 io.on('connection', (socket) => {
   console.log('Frontend connected to Socket.io');
   
-  // Also send current session status on connect
+  // Send current state to newly connected client
   socket.emit('session_status', activeSession !== null);
+  socket.emit('threshold_sync', globalThreshold);
   
   socket.on('request_session_status', () => {
     socket.emit('session_status', activeSession !== null);
+    socket.emit('threshold_sync', globalThreshold);
+  });
+
+  // Client changed threshold — broadcast to ALL other clients and save to DB
+  socket.on('threshold_change', (value) => {
+    const val = parseInt(value, 10);
+    if (!isNaN(val) && val >= 10 && val <= 90) {
+      globalThreshold = val;
+      db.updateSetting('danger_limit', val);
+      socket.broadcast.emit('threshold_sync', globalThreshold); // others, not sender
+    }
   });
   
   socket.on('wrench_control', (data) => {

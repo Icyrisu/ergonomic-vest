@@ -6,39 +6,57 @@ console.log('Dummy MQTT script connecting to:', brokerUrl);
 const client = mqtt.connect(brokerUrl);
 
 // Topics mapped to the back sensors
-const topics = [
+const spineTopics = [
     'UMJ/EV/S3', // Chest
     'UMJ/EV/S4', // Mid Back
     'UMJ/EV/S5', // Lower Back
     'UMJ/EV/S6'  // Pelvis
 ];
 
+// Topics mapped to the shoulders/arms
+const shoulderTopics = [
+    'UMJ/EV/S1', // Left Arm
+    'UMJ/EV/S2'  // Right Arm
+];
+
 client.on('connect', () => {
     console.log('Connected! Starting dummy data loop...');
     
     let step = 0;
-    // We will animate pitch from -90 (upright) to 0 (bent) and back
-    // Pitch path: -90 -> 0 -> -90
     
     setInterval(() => {
-        // Create a sine wave oscillation between -90 and 0
-        // Math.sin(step) goes from -1 to 1.
-        // We want a value between -90 and 0.
-        // Center is -45, amplitude is 45.
-        const pitchValue = -45 + 45 * Math.sin(step);
-        
-        // Slightly offset the phase for each sensor to make it look like a rolling wave
-        topics.forEach((topic, index) => {
+        // Spine calculations (-90 when upright, 0 when bent)
+        spineTopics.forEach((topic, index) => {
             const phaseOffset = index * 0.2;
             const pitch = -45 + 45 * Math.sin(step + phaseOffset);
             
             const payload = JSON.stringify({
                 pitch: pitch.toFixed(2),
-                roll: 0 // Keep roll at 0 to avoid sideways bending in this dummy
+                roll: 0 
             });
             
             client.publish(topic, payload);
-            console.log(`Published to ${topic}: ${payload}`);
+        });
+
+        // Shoulder calculations (S2 and S3)
+        // User requested: 0 degrees when upright (-90 chest), 90 degrees when bent (0 chest)
+        // So shoulderPitch = chestPitch + 90
+        const chestPitch = -45 + 45 * Math.sin(step);
+        let shoulderPitch = chestPitch + 90; 
+        
+        // Add subtle variation
+        shoulderPitch += 10 * Math.cos(step);
+
+        shoulderTopics.forEach((topic, index) => {
+            const armOffset = index === 0 ? 2 : -2;
+            const finalPitch = shoulderPitch + armOffset;
+
+            const payload = JSON.stringify({
+                pitch: finalPitch.toFixed(2),
+                roll: 0
+            });
+            
+            client.publish(topic, payload);
         });
 
         step += 0.1; // Speed of animation

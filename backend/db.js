@@ -27,8 +27,17 @@ const initDB = async () => {
             );
 
             CREATE INDEX IF NOT EXISTS idx_session_name ON session_data(session_name);
+
+            CREATE TABLE IF NOT EXISTS settings (
+                key VARCHAR(50) PRIMARY KEY,
+                value JSONB NOT NULL
+            );
+
+            INSERT INTO settings (key, value)
+            VALUES ('danger_limit', '25')
+            ON CONFLICT (key) DO NOTHING;
         `);
-        console.log('Database initialized: sessions and session_data tables are ready.');
+        console.log('Database initialized: tables are ready.');
     } catch (err) {
         console.error('Failed to initialize database:', err.message);
     }
@@ -101,6 +110,30 @@ const getSessionData = async (sessionName) => {
     }
 };
 
+const getSetting = async (key, defaultValue) => {
+    try {
+        const result = await pool.query('SELECT value FROM settings WHERE key = $1', [key]);
+        if (result.rows.length > 0) {
+            return result.rows[0].value;
+        }
+        return defaultValue;
+    } catch (err) {
+        console.error(`Error fetching setting ${key}:`, err.message);
+        return defaultValue;
+    }
+};
+
+const updateSetting = async (key, value) => {
+    try {
+        await pool.query(
+            'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+            [key, JSON.stringify(value)]
+        );
+    } catch (err) {
+        console.error(`Error updating setting ${key}:`, err.message);
+    }
+};
+
 module.exports = {
     pool,
     initDB,
@@ -108,5 +141,7 @@ module.exports = {
     endSession,
     insertSessionData,
     getSessions,
-    getSessionData
+    getSessionData,
+    getSetting,
+    updateSetting
 };

@@ -385,7 +385,9 @@ export function initThreeModel(container: HTMLElement | null) {
             const totalCurveAngle = v1.angleTo(v2) + v2.angleTo(v3);
                                
             // The more curved the 5-7-8-9 points, the smoother the transition to red 
-            const bendFactor = Math.min(1, totalCurveAngle / 0.35);
+            const redThresholdDeg = window.curveRedThreshold || 20;
+            const redThresholdRad = redThresholdDeg * (Math.PI / 180);
+            const bendFactor = Math.min(1, totalCurveAngle / redThresholdRad);
             const targetColor = getGradientColor(bendFactor);
 
             // Update UI Panel for "Total Curve"
