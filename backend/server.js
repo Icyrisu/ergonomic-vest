@@ -69,9 +69,7 @@ io.on('connection', (socket) => {
 
 mqttWorker.setSocketIo(io);
 
-if (process.env.NODE_ENV === 'development') {
-    require('./dummy_mqtt.js');
-}
+// Dummy MQTT removed
 
 // ---------------------------------------------------------
 // SESSION RECORDING LOGIC
