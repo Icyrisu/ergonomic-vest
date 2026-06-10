@@ -205,13 +205,7 @@ export default function Dashboard({ socket }: DashboardProps) {
     }
   };
 
-  const turnWrenchOn = () => {
-    if (socket) socket.emit('wrench_control', { value: 'ON' });
-  };
 
-  const turnWrenchOff = () => {
-    if (socket) socket.emit('wrench_control', { value: 'OFF' });
-  };
 
   return (
     /* Mobile: scrollable. Desktop lg+: fixed height flex-row */
