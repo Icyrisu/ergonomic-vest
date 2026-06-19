@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const BACKEND_URL = 'http://backend:3000'
+const BACKEND_URL = process.env.BACKEND_URL || process.env.VITE_BACKEND_URL || 'http://backend:3000'
 
 // https://vite.dev/config/
 export default defineConfig({

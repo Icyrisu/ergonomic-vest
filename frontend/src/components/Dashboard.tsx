@@ -12,6 +12,7 @@ export default function Dashboard({ socket }: DashboardProps) {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isStopModalOpen, setIsStopModalOpen] = useState<boolean>(false);
   const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
+  const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '';
   const [redThreshold, setRedThreshold] = useState<number>(() => {
     const saved = localStorage.getItem('curveRedThreshold');
     return saved ? parseInt(saved, 10) : 20;
@@ -167,7 +168,7 @@ export default function Dashboard({ socket }: DashboardProps) {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch('/api/sessions/start', {
+      const response = await fetch(`${API_BASE_URL}/api/sessions/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -198,7 +199,7 @@ export default function Dashboard({ socket }: DashboardProps) {
 
   const handleStopSession = async () => {
     try {
-      await fetch('/api/sessions/stop', { method: 'POST' });
+      await fetch(`${API_BASE_URL}/api/sessions/stop`, { method: 'POST' });
       setIsStopModalOpen(false);
     } catch (err) {
       console.error('Failed to stop session', err);

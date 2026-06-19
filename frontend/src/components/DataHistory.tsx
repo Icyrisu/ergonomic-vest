@@ -49,6 +49,8 @@ export default function DataHistory() {
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '';
+
 
   useEffect(() => {
     fetchSessions();
@@ -56,7 +58,7 @@ export default function DataHistory() {
 
   const fetchSessions = async () => {
     try {
-      const res = await fetch('/api/sessions');
+      const res = await fetch(`${API_BASE_URL}/api/sessions`);
       const data = await res.json();
       setSessions(data);
       if (data.length > 0) {
@@ -95,7 +97,7 @@ export default function DataHistory() {
     if (!selectedSession) return;
     
     setLoading(true);
-    fetch(`/api/sessions/${selectedSession}/data`)
+    fetch(`${API_BASE_URL}/api/sessions/${selectedSession}/data`)
       .then(res => res.json())
       .then((data: RawSessionData[]) => {
         // Format data for Recharts

@@ -5,7 +5,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import DataHistory from './components/DataHistory';
 
-const SOCKET_URL = '/';
+const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
