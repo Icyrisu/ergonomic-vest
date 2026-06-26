@@ -1,70 +1,78 @@
 # Ergonomic Vest Dashboard
 
-Real-time monitoring dashboard for the Ergonomic Vest project. Uses MQTT to receive ESP32 gyroscope data, processes posture via a 3D model, and stores sessions using PostgreSQL.
+A full-stack monitoring dashboard for an Ergonomic Vest, featuring real-time 3D posture visualization, MQTT sensor integration, and data history tracking.
+
+## Architecture
+
+The project has been refactored using Clean Architecture principles to ensure scalability, maintainability, and security.
+
+### Structure
+
+```
+project/
+├── frontend/ (React + Vite, TailwindCSS, Three.js)
+│   ├── src/
+│   │   ├── components/  # Reusable UI components
+│   │   ├── hooks/       # Custom React hooks (useSocket, useSessions)
+│   │   ├── services/    # API calls
+│   │   └── assets/      # Static assets
+│   └── Dockerfile
+│
+├── backend/ (Node.js + Express, Socket.io)
+│   ├── src/
+│   │   ├── config/      # Environment and Database configuration
+│   │   ├── controllers/ # HTTP Request handlers
+│   │   ├── middleware/  # Error handling and validation
+│   │   ├── models/      # Database queries
+│   │   ├── mqtt/        # MQTT Client Service
+│   │   ├── routes/      # API routing
+│   │   ├── services/    # Business logic
+│   │   └── utils/       # Logger and helpers
+│   └── Dockerfile
+│
+├── database/ (PostgreSQL)
+│   └── init.sql         # Database schema initialization
+│
+├── docker-compose.yml   # Multi-container orchestration
+└── .env                 # Environment variables
+```
 
 ## Prerequisites
-- Docker and Docker Compose installed
 
-## Setup Instructions
+- Docker
+- Docker Compose
 
-1. **Environment Variables**:
-   Copy the example environment file:
+## Installation & Configuration
+
+1. Clone the repository.
+2. Create a `.env` file from the example:
    ```bash
    cp .env.example .env
    ```
-   Edit `.env` to set your desired passwords if necessary. By default, it will use `admin` and `your_password_here`.
+3. Update the `.env` file with your specific configurations (e.g., PostgreSQL credentials, MQTT broker URL, ports).
 
-2. **Run with Docker Compose**:
-   Ensure Docker is running, then execute:
-   ```bash
-   docker-compose up -d --build
-   ```
+## Running the Application
 
-3. **Access the Application**:
-   - Open your browser and go to `http://localhost:8080` (or `http://<your-ip>:8080` from your mobile phone).
-   - The backend runs on `http://localhost:3000`.
+The entire application can be started using Docker Compose:
 
-## Features
-- **Real-Time 3D Posture Visualization**: Uses React Three Fiber.
-- **Cross-Device Sync**: Any Danger Limit changes sync immediately via WebSockets.
-- **Offline Data Storage**: Session and posture logs are persisted in PostgreSQL.
-
-## Stopping the Server
-To stop the application, run:
 ```bash
-docker-compose down
+docker-compose up -d --build
 ```
 
-## MQTT Topics & Payload Structure
+This command will start:
+- **PostgreSQL Database** on port `5432` (or your configured `DATABASE_PORT`).
+- **Backend API & Socket Server** on port `3000` (or your configured `BACKEND_PORT`).
+- **Frontend Vite Server** on port `8080` (or your configured `FRONTEND_PORT`).
 
-The dashboard subscribes and publishes to a specific MQTT broker (`wss://broker.hivemq.com:8884/mqtt` by default) to communicate with the ESP32 hardware.
+Wait for the containers to become healthy. You can then access the dashboard at:
+`http://localhost:8080` (assuming default port).
 
-### 1. Sensor Data (From ESP32 to Dashboard)
-The ESP32 should publish data to the following topics continuously:
-- `UMJ/EV/S1`: Left Arm / L-Shoulder
-- `UMJ/EV/S2`: Right Arm / R-Shoulder
-- `UMJ/EV/S3`: Chest / Spine3
-- `UMJ/EV/S4`: Mid Back / Spine2
-- `UMJ/EV/S5`: Low Back / Spine1
-- `UMJ/EV/S6`: Pelvis
+## Troubleshooting
 
-**Payload Format (JSON):**
-```json
-{
-  "pitch": -45.5,
-  "roll": 2.3
-}
-```
-*(Notes: Pitch `0` is bent forward, `-90` is standing upright. Roll defines side-to-side leaning).*
-
-### 2. Impact Wrench Status (Bidirectional)
-To know when the worker is actively drilling/wrenching, the vest listens to this topic:
-- `UMJ/EV/WR`
-
-**Payload Format (JSON):**
-```json
-{
-  "value": "ON" 
-}
-```
-*(Value can be `"ON"` or `"OFF"`).*
+- **Database not connecting:** Ensure the credentials in `.env` are correct and that the database container is fully initialized. The backend is configured to wait for the database healthcheck before starting.
+- **MQTT offline:** Check if your `MQTT_BROKER` URL in `.env` is reachable. The backend will log connection errors.
+- **Frontend cannot reach backend:** Ensure `VITE_BACKEND_URL` points to the correct backend host and port. When using Docker Compose locally, this should usually be `http://localhost:3000` (as mapped to your host machine).
+- **View Logs:** You can inspect logs for specific services using:
+  ```bash
+  docker-compose logs -f backend
+  ```

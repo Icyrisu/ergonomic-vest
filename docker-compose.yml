@@ -8,16 +8,22 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "${DATABASE_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     container_name: ev-backend
     build:
       context: ./backend
     ports:
-      - "${BACKEND_PORT}:${BACKEND_PORT}"
+      - "${BACKEND_PORT:-3000}:${BACKEND_PORT:-3000}"
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -26,24 +32,31 @@ services:
       - NODE_ENV=development
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
       - MQTT_BROKER=${MQTT_BROKER}
-      - PORT=${BACKEND_PORT}
+      - PORT=${BACKEND_PORT:-3000}
     depends_on:
-      - database
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${BACKEND_PORT:-3000}/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     container_name: ev-frontend
     build:
       context: ./frontend
     ports:
-      - "8080:5173"
+      - "${FRONTEND_PORT:-8080}:5173"
     environment:
-      - BACKEND_API_URL=http://backend:${BACKEND_PORT}
+      - VITE_BACKEND_URL=http://localhost:${BACKEND_PORT:-3000}
     volumes:
       - ./frontend:/app
       - /app/node_modules
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   pgdata:

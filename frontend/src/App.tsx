@@ -1,34 +1,15 @@
-import { useState, useEffect } from 'react';
-import { io, Socket } from 'socket.io-client';
+import { useState } from 'react';
 import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import DataHistory from './components/DataHistory';
-
-const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || '';
+import { useSocket } from './hooks/useSocket';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [mqttStatus, setMqttStatus] = useState<string>('CONNECTING');
-
-  useEffect(() => {
-    // autoConnect: false — sambungkan manual supaya bisa handle error gracefully
-    const newSocket = io(SOCKET_URL, {
-      reconnectionAttempts: 5,
-      timeout: 5000,
-    });
-    setSocket(newSocket);
-
-    newSocket.on('connect', () => { setMqttStatus('ONLINE'); });
-    newSocket.on('disconnect', () => { setMqttStatus('OFFLINE'); });
-    // Saat offline / server tidak ada — tidak crash, cukup OFFLINE
-    newSocket.on('connect_error', () => { setMqttStatus('OFFLINE'); });
-
-    return () => { newSocket.close(); };
-  }, []);
+  const { socket, mqttStatus } = useSocket();
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-800">

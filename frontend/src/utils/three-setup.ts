@@ -251,6 +251,7 @@ export function initThreeModel(container: HTMLElement | null) {
             spine1:    { x: 0, z: 0 },
             spine2:    { x: 0, z: 0 },
             chest:     { x: 0, z: 0 },
+            neck:      { x: 0, z: 0 },
             lShoulder: { x: 0, z: 0 },
             rShoulder: { x: 0, z: 0 },
         };
@@ -325,30 +326,31 @@ export function initThreeModel(container: HTMLElement | null) {
             sensorMeshes.push(grp);
         }
 
-        // Shoulders (2,3): chip faces upward — sit on top of shoulder ball joint
-        addSensor(bones.rShoulder, '2', new THREE.Vector3( 0.01, 0.06, 0), 0);
-        addSensor(bones.lShoulder, '3', new THREE.Vector3(-0.01, 0.06, 0), 0);
+        // Shoulders (B,C): chip faces upward — sit on top of shoulder ball joint
+        addSensor(bones.lShoulder, 'B', new THREE.Vector3(-0.01, 0.06, 0), 0); // lShoulder (-X) is physically the right shoulder when facing +Z
+        addSensor(bones.rShoulder, 'C', new THREE.Vector3( 0.01, 0.06, 0), 0); // rShoulder (+X) is physically the left shoulder when facing +Z
 
-        // Spine (5,7,8,9): sensor mounted flat on back, board perpendicular to spine
+        // Spine (A,D,E,F): sensor mounted flat on back, board perpendicular to spine
         //   rotX = -PI/2 → board stands up, flat face pointing outward (-Z = back of body)
         //   When bowing 90°, the face rotates to point upward (+Y) ✓
         const spineRot = -Math.PI / 2;
-        addSensor(bones.chest,  '5', new THREE.Vector3(0, 0, -0.18), spineRot);
-        addSensor(bones.spine2, '7', new THREE.Vector3(0, 0, -0.17), spineRot);
-        addSensor(bones.spine1, '8', new THREE.Vector3(0, 0, -0.17), spineRot);
-        addSensor(bones.pelvis, '9', new THREE.Vector3(0, 0, -0.17), spineRot);
+        addSensor(bones.neck,   'A', new THREE.Vector3(0, 0, -0.18), spineRot);
+        addSensor(bones.chest,  'D', new THREE.Vector3(0, 0, -0.18), spineRot);
+        addSensor(bones.spine2, 'E', new THREE.Vector3(0, 0, -0.18), spineRot);
+        addSensor(bones.pelvis, 'F', new THREE.Vector3(0, 0, -0.18), spineRot);
 
         // Global toggle for show/hide sensors
         window.toggleSensors = (visible: boolean) => {
             sensorMeshes.forEach(g => { g.visible = visible; });
         };
 
-        // Shoulder line remains straight
+        // Straight lines connecting sensors to central D (chest)
         const linkGeo = new THREE.CylinderGeometry(0.015, 0.015, 1, 6);
         const linkMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
         const lines: any = {
-            '2-5': new THREE.Mesh(linkGeo, linkMat.clone()),
-            '3-5': new THREE.Mesh(linkGeo, linkMat.clone())
+            'A-D': new THREE.Mesh(linkGeo, linkMat.clone()),
+            'B-D': new THREE.Mesh(linkGeo, linkMat.clone()),
+            'C-D': new THREE.Mesh(linkGeo, linkMat.clone())
         };
         for (const k in lines) {
             lines[k].userData.isLine = true;
@@ -374,17 +376,17 @@ export function initThreeModel(container: HTMLElement | null) {
 
         function updateSensorLines() {
             const wp = (id) => { const v = new THREE.Vector3(); sensors[id].getWorldPosition(v); return v; };
-            const p2=wp('2'), p3=wp('3'), p5=wp('5'), p7=wp('7'), p8=wp('8'), p9=wp('9');
+            const pA=wp('A'), pB=wp('B'), pC=wp('C'), pD=wp('D'), pE=wp('E'), pF=wp('F');
             
-            // Measure actual "curve angle" from lines formed by sensor points (5, 7, 8, 9)
-            const v1 = new THREE.Vector3().subVectors(p5, p7).normalize();
-            const v2 = new THREE.Vector3().subVectors(p7, p8).normalize();
-            const v3 = new THREE.Vector3().subVectors(p8, p9).normalize();
+            // Measure actual "curve angle" from lines formed by straight sensor points (A, D, E, F)
+            const v1 = new THREE.Vector3().subVectors(pA, pD).normalize();
+            const v2 = new THREE.Vector3().subVectors(pD, pE).normalize();
+            const v3 = new THREE.Vector3().subVectors(pE, pF).normalize();
             
             // Total curve angle in radians
             const totalCurveAngle = v1.angleTo(v2) + v2.angleTo(v3);
                                
-            // The more curved the 5-7-8-9 points, the smoother the transition to red 
+            // The more curved the A-D-E-F points, the smoother the transition to red 
             const redThresholdDeg = window.curveRedThreshold || 20;
             const redThresholdRad = redThresholdDeg * (Math.PI / 180);
             const bendFactor = Math.min(1, totalCurveAngle / redThresholdRad);
@@ -399,26 +401,27 @@ export function initThreeModel(container: HTMLElement | null) {
             }
 
             // Color all sensor dots
-            ['2', '3', '5', '7', '8', '9'].forEach(id => {
+            ['A', 'B', 'C', 'D', 'E', 'F'].forEach(id => {
                 if (sensors[id] && sensors[id].children[0]) {
                     sensors[id].children[0].material.color.copy(targetColor);
                 }
             });
 
-            // Update straight line from shoulder to chest
-            function placeCyl(mesh, pA, pB) {
-                const dist = pA.distanceTo(pB);
+            // Update straight line from shoulders/neck to chest
+            function placeCyl(mesh, ptA, ptB) {
+                const dist = ptA.distanceTo(ptB);
                 if (dist < 0.001) return;
-                mesh.position.copy(pA).lerp(pB, 0.5);
+                mesh.position.copy(ptA).lerp(ptB, 0.5);
                 mesh.scale.set(1, dist, 1);
-                mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pB.clone().sub(pA).normalize());
+                mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), ptB.clone().sub(ptA).normalize());
                 mesh.material.color.copy(targetColor);
             }
-            placeCyl(lines['2-5'], p2, p5);
-            placeCyl(lines['3-5'], p3, p5);
+            placeCyl(lines['A-D'], pA, pD);
+            placeCyl(lines['B-D'], pB, pD);
+            placeCyl(lines['C-D'], pC, pD);
 
-            // Update curved back (9 -> 8 -> 7 -> 5)
-            const curve = new THREE.CatmullRomCurve3([p9, p8, p7, p5]);
+            // Update curved back (F -> E -> D -> A)
+            const curve = new THREE.CatmullRomCurve3([pF, pE, pD, pA]);
             curve.tension = 0.5; // Adjust curve smoothness
             
             if (curveMesh.geometry) curveMesh.geometry.dispose();

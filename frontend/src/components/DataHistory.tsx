@@ -11,7 +11,7 @@ import {
   ReferenceArea
 } from 'recharts';
 import { Download } from 'lucide-react';
-
+import { useSessions } from '../hooks/useSessions';
 interface Session {
   session_name: string;
   worker_name: string;
@@ -43,33 +43,16 @@ interface ChartPoint {
 }
 
 export default function DataHistory() {
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const { sessions, fetchSessions, fetchSessionData } = useSessions();
   const [selectedSession, setSelectedSession] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '';
-
 
   useEffect(() => {
-    fetchSessions();
-  }, []);
-
-  const fetchSessions = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/sessions`);
-      const data = await res.json();
-      setSessions(data);
-      if (data.length > 0) {
-        setSelectedSession(data[0].session_name);
-      }
-    } catch (err) {
-      setError('Failed to fetch sessions');
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchSessions().finally(() => setLoading(false));
+  }, [fetchSessions]);
 
   // Filter sessions by date
   const filteredSessions = useMemo(() => {
@@ -97,9 +80,13 @@ export default function DataHistory() {
     if (!selectedSession) return;
     
     setLoading(true);
-    fetch(`${API_BASE_URL}/api/sessions/${selectedSession}/data`)
-      .then(res => res.json())
-      .then((data: RawSessionData[]) => {
+    fetchSessionData(selectedSession)
+      .then((data: RawSessionData[] | null) => {
+        if (!data) {
+          setError('Failed to fetch session data');
+          setLoading(false);
+          return;
+        }
         // Format data for Recharts
         const formattedData: ChartPoint[] = data.map(row => {
           const timeObj = new Date(row.recorded_at);
@@ -121,7 +108,7 @@ export default function DataHistory() {
         setError('Failed to fetch session data');
         setLoading(false);
       });
-  }, [selectedSession]);
+  }, [selectedSession, fetchSessionData]);
 
   // Calculate offline ranges for ReferenceArea
   const offlineRanges = useMemo(() => {
@@ -157,14 +144,13 @@ export default function DataHistory() {
   const exportToCSV = () => {
     if (chartData.length === 0) return;
 
-    // Define sensor mappings
     const sensorCols = [
-      { id: 'UMJ/EV/S1', label: 'Left Arm (S2)' },
-      { id: 'UMJ/EV/S2', label: 'Right Arm (S3)' },
-      { id: 'UMJ/EV/S3', label: 'Chest (S5)' },
-      { id: 'UMJ/EV/S4', label: 'Mid Back (S7)' },
-      { id: 'UMJ/EV/S5', label: 'Low Back (S8)' },
-      { id: 'UMJ/EV/S6', label: 'Pelvis (S9)' }
+      { id: 'UMJ/EV/S1', label: 'A (Neck)' },
+      { id: 'UMJ/EV/S2', label: 'B (Right Shoulder)' },
+      { id: 'UMJ/EV/S3', label: 'C (Left Shoulder)' },
+      { id: 'UMJ/EV/S4', label: 'D (Upper Back)' },
+      { id: 'UMJ/EV/S5', label: 'E (Mid Back)' },
+      { id: 'UMJ/EV/S6', label: 'F (Pelvis)' }
     ];
 
     let csvContent = "Timestamp,Wrench Status,Curve Angle";
