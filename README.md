@@ -1,23 +1,72 @@
-# Ergonomic Vest Dashboard
+# Ergonomic Vest Dashboard 🦺💻
 
-A full-stack, real-time monitoring dashboard designed to receive, process, and visualize real-time posture data from a smart Ergonomic Vest equipped with ESP32 and Gyroscope sensors via the MQTT protocol.
+![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white)
+![Express.js](https://img.shields.io/badge/express.js-%23404d59.svg?style=for-the-badge&logo=express&logoColor=%2361DAFB)
+![Postgres](https://img.shields.io/badge/postgres-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
+![MQTT](https://img.shields.io/badge/mqtt-660066?style=for-the-badge&logo=mqtt&logoColor=white)
 
-This project is built using **Clean Architecture** principles to ensure a professional, well-organized, scalable, and production-ready structure. It is designed to be easily run locally using Docker Compose.
+A full-stack, real-time monitoring dashboard engineered to receive, process, and visualize posture data from a smart Ergonomic Vest. This system captures data from hardware sensors (ESP32 and Gyroscope/Accelerometer) via the MQTT protocol and renders it seamlessly into a real-time 3D posture visualization using Three.js.
+
+The project has been heavily refactored utilizing **Clean Architecture** principles to guarantee a professional, well-organized, scalable, and production-ready structure.
+
+---
+
+## 🌟 Key Features
+
+- **Real-Time 3D Visualization**: Renders the user's posture dynamically in a 3D space with zero perceived latency.
+- **High-Frequency MQTT Integration**: Dedicated backend service to handle rapid continuous telemetry data from ESP32.
+- **WebSocket Streaming**: Instantaneous data broadcasting from the Node.js backend to the React frontend using Socket.io.
+- **Historical Data Tracking**: All sessions and sensor logs are reliably persisted into a PostgreSQL database.
+- **Containerized Environment**: One-command setup using Docker Compose ensures the app works flawlessly on any machine.
+
+---
+
+## 📡 MQTT Data Architecture & Payload
+
+This dashboard relies on real-time data sent from the Ergonomic Vest (ESP32) over MQTT. The backend subscribes to specific topics, processes the telemetry data, calculates safety parameters, and streams it to the frontend via WebSockets.
+
+### Topics & Payloads
+The system listens to the following hardware topics:
+
+1. **Wrench Status Topic**: `UMJ/EV/WR`
+   - **Description**: Indicates whether the user is actively using the wrench or heavy tool.
+   - **Expected Payload**: `{"value": "ON" | "OFF"}`
+
+2. **Sensor Data Topics**: `UMJ/EV/S1` to `UMJ/EV/S6`
+   - **Description**: Receives continuous gyroscope/accelerometer telemetry from 6 different sensor nodes distributed on the vest.
+   - **Expected Payload**: `{"pitch": <float>, "roll": <float>}`
+   - **Dynamic Safety Logic**: The Node.js backend processes the `pitch` value to determine posture safety in real-time before broadcasting it:
+     - 🟢 **Safe**: Pitch ≤ -60
+     - 🟡 **Warning**: -60 < Pitch ≤ -45
+     - 🔴 **Danger**: Pitch > -45
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: React, Vite, TailwindCSS, Three.js
-- **Backend**: Node.js, Express.js, Socket.io, MQTT.js
-- **Database**: PostgreSQL
-- **Infrastructure**: Docker, Docker Compose
+### 1. Frontend
+- **Framework**: React.js
+- **Build Tool**: Vite (Lightning fast HMR and optimized builds)
+- **Styling**: TailwindCSS (Utility-first modern styling)
+- **3D Rendering**: Three.js (WebGL rendering for posture tracking)
+
+### 2. Backend
+- **Runtime**: Node.js (v20 Alpine recommended)
+- **Framework**: Express.js
+- **Real-Time Engine**: Socket.io
+- **IoT Protocol**: MQTT.js
+
+### 3. Database & Infrastructure
+- **Relational Database**: PostgreSQL (Robust data storage)
+- **Orchestration**: Docker & Docker Compose
 
 ---
 
-## 📂 Project Structure & Explanation (Clean Architecture)
+## 📂 Project Structure & Clean Architecture
 
-The project separates concerns into three main services: Frontend, Backend, and Database.
+The codebase is strictly separated into distinct layers to maintain high cohesion and low coupling.
 
 ```text
 project_root/
@@ -26,7 +75,7 @@ project_root/
 │   ├── src/
 │   │   ├── components/       # Reusable UI components (e.g., buttons, cards, 3D Canvas wrappers).
 │   │   ├── pages/            # Page-level components representing different views (e.g., Dashboard, History).
-│   │   ├── hooks/            # Custom React Hooks to encapsulate logic (e.g., WebSocket subscription logic).
+│   │   ├── hooks/            # Custom React Hooks to encapsulate logic (e.g., useSocket, useSensorData).
 │   │   ├── services/         # API Service functions to communicate with the Backend via HTTP.
 │   │   ├── utils/            # Helper functions and utilities for formatting data or general logic.
 │   │   └── assets/           # Static files like images, icons, and 3D models (.gltf / .obj).
@@ -60,49 +109,99 @@ project_root/
 
 ---
 
-## ⚙️ Environment Configuration
+## ⚙️ Environment Variables
 
-This application uses Environment Variables to prevent hardcoding sensitive credentials and ensure security.
+The system relies on a `.env` file to handle secrets and configurations safely. Do not hardcode these values.
 
-1. Copy `.env.example` to `.env` in the root directory.
+1. **Create the file**: Copy the example template into a new `.env` file in the root directory.
    ```bash
    cp .env.example .env
    ```
-2. Update the configurations in the newly created `.env` file (e.g., PostgreSQL credentials, MQTT Broker URL, Ports). 
-   - *Note*: Ensure that frontend variables (like `VITE_BACKEND_URL`) point correctly to the backend server URL.
+
+2. **Configure your `.env`**:
+   ```env
+   # --- Database Configurations ---
+   POSTGRES_USER=admin                 # Username for PostgreSQL
+   POSTGRES_PASSWORD=your_password     # Password for PostgreSQL
+   POSTGRES_DB=ergonomic_vest          # Database Name
+   DATABASE_PORT=5432                  # Database exposed port
+
+   # --- Backend Configurations ---
+   BACKEND_PORT=3000                   # API and Socket Server Port
+   MQTT_BROKER=wss://broker.hivemq.com:8884/mqtt  # Your MQTT Broker Address (e.g., HiveMQ, Mosquitto)
+
+   # --- Frontend Configurations ---
+   FRONTEND_PORT=8080                  # Port to access the Dashboard
+   ```
 
 ---
 
 ## 🚀 Installation & Running (Docker Compose)
 
-Make sure you have **Docker** and **Docker Compose** installed on your system. This project is designed to run instantly with a single command.
+The easiest and recommended way to run this project is through Docker Compose. This ensures all services, networking, and dependencies are resolved automatically.
 
-1. Open a terminal in the root directory (where `docker-compose.yml` is located).
-2. Run the following command:
+### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/) installed.
+- [Docker Compose](https://docs.docker.com/compose/install/) installed.
 
+### Steps to Run
+1. Open a terminal in the root directory.
+2. Build and start the containers in detached mode:
    ```bash
-   docker compose up --build
+   docker compose up -d --build
    ```
-3. Wait for the build process (pulling alpine images, caching, etc.) and container initialization to finish.
-4. Access the application:
-   - **Frontend (Dashboard)**: `http://localhost:8080` (or the port defined by `VITE_FRONTEND_PORT`)
-   - **Backend API**: `http://localhost:3000` (or the port defined by `BACKEND_PORT`)
-   - **PostgreSQL Database**: Running locally on port `5432`
+3. Wait approximately 30-60 seconds for the database to initialize and the servers to start.
+4. **Access the application**:
+   - **Frontend (Dashboard)**: [http://localhost:8080](http://localhost:8080) (or your configured `FRONTEND_PORT`)
+   - **Backend API**: `http://localhost:3000`
+   - **PostgreSQL Database**: Port `5432`
 
-*Note: The Backend is configured to wait (`depends_on`) for the `service_healthy` state of PostgreSQL before attempting a connection.*
+> **Note on Healthchecks**: The Node.js backend is configured in `docker-compose.yml` to wait (`depends_on`) for the `service_healthy` state of PostgreSQL. The API won't start until the database is fully ready to accept connections.
 
 ---
 
-## 🔧 Troubleshooting
+## 🛠️ Local Development (Without Docker)
 
-- **Backend Database Connection Error**: Ensure the credentials in `.env` are correct. The `init.sql` script inside the Docker PostgreSQL container only runs if the data volume is completely empty. If you changed the schema/password in `.env` but the container has run previously, you need to delete the Docker volume first.
-- **Frontend Cannot Connect to Backend (Socket/API)**: Verify that the `VITE_BACKEND_URL` variable in your `.env` configuration points to a URL accessible by the browser (e.g., `http://localhost:3000`).
-- **No Incoming MQTT Data**: Verify your MQTT Broker connection and URL. You can check for connection errors caught by the error handler via the backend container logs.
-- **Viewing Application Logs**: Use the following command to view specific service logs:
-  ```bash
-  docker compose logs -f backend
-  ```
-- **Total Reset / Clean Rebuild**: If you need to clear all volumes and rebuild completely from scratch, run:
+If you wish to develop without Docker, you must start each service manually.
+
+**1. PostgreSQL**
+Ensure you have a PostgreSQL server running locally with the credentials matching your `.env` file. Manually execute the `database/init.sql` script.
+
+**2. Backend**
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+**3. Frontend**
+Ensure you have created a `.env` file inside the `frontend` folder containing `VITE_BACKEND_URL=http://localhost:3000`.
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+## 🔧 Troubleshooting & Common Issues
+
+- **Backend Database Connection Error**: 
+  - Ensure the credentials in `.env` are correct. 
+  - *Important*: The `init.sql` script inside the Docker PostgreSQL container **only runs if the data volume is completely empty**. If you changed the schema/password in `.env` but the container has run previously, you need to delete the Docker volume first using `docker compose down -v`.
+  
+- **Frontend Cannot Connect to Backend (Socket/API)**: 
+  - Verify that the frontend can reach the backend. If testing on a mobile device, `localhost` won't work; you must set `VITE_BACKEND_URL` to your computer's local IP address (e.g., `http://192.168.1.5:3000`).
+
+- **No Incoming MQTT Data on Dashboard**: 
+  - Verify that your hardware (ESP32) is publishing to the exact same `MQTT_BROKER` URL specified in `.env`.
+  - Check the backend logs for connection errors:
+    ```bash
+    docker compose logs -f backend
+    ```
+
+- **Total Reset / Clean Rebuild**: 
+  If the application state becomes corrupted, completely wipe all containers, networks, and volumes (this will erase your local DB data):
   ```bash
   docker compose down -v
   docker compose up -d --build
