@@ -15,10 +15,12 @@ The project has been heavily refactored utilizing **Clean Architecture** princip
 
 ## 🌟 Key Features
 
-- **Real-Time 3D Visualization**: Renders the user's posture dynamically in a 3D space with zero perceived latency.
+- **Real-Time 3D Visualization**: Renders the user's posture dynamically in a 3D space with zero perceived latency. The 3D bones change color based on safety limits.
+- **Dynamic Posture Terminology & Tolerance**: Postures are categorized into **Neutral Pose (Green)**, **Working Pose (Yellow)**, and **Bad Pose (Red)**. Tolerance limits for "Working Pose" can be dynamically configured per session before starting.
 - **High-Frequency MQTT Integration**: Dedicated backend service to handle rapid continuous telemetry data from ESP32.
 - **WebSocket Streaming**: Instantaneous data broadcasting from the Node.js backend to the React frontend using Socket.io.
-- **Historical Data Tracking**: All sessions and sensor logs are reliably persisted into a PostgreSQL database.
+- **Continuous Historical Data Tracking**: All sessions and sensor logs are reliably persisted into a PostgreSQL database unconditionally, tracking user posture seamlessly even when the primary tools (Wrench) are temporarily turned OFF.
+- **Multi-Sensor Analytical Charts**: Review history via a robust multi-line chart (Recharts) mapping discrete sensors (S1, S4, S5, S6) alongside Tool Wrench usage references. 
 - **Containerized Environment**: One-command setup using Docker Compose ensures the app works flawlessly on any machine.
 
 ---
@@ -33,14 +35,20 @@ The system listens to the following hardware topics:
 1. **Wrench Status Topic**: `UMJ/EV/WR`
    - **Description**: Indicates whether the user is actively using the wrench or heavy tool.
    - **Expected Payload**: `{"value": "ON" | "OFF"}`
+   - **Behavior**: While OFF, the vest sensors continue to broadcast and log to the database unconditionally, ensuring continuous posture audit trails. The dashboard visually denotes OFF sections using red overlays.
 
 2. **Sensor Data Topics**: `UMJ/EV/S1` to `UMJ/EV/S6`
-   - **Description**: Receives continuous gyroscope/accelerometer telemetry from 6 different sensor nodes distributed on the vest.
+   - **Description**: Receives continuous gyroscope/accelerometer telemetry from sensor nodes distributed on the vest.
    - **Expected Payload**: `{"pitch": <float>, "roll": <float>}`
-   - **Dynamic Safety Logic**: The Node.js backend processes the `pitch` value to determine posture safety in real-time before broadcasting it:
-     - 🟢 **Safe**: Pitch ≤ -60
-     - 🟡 **Warning**: -60 < Pitch ≤ -45
-     - 🔴 **Danger**: Pitch > -45
+   - **Active Sensor Mapping**: The system focuses strictly on 4 primary axial spine sensors (Arms/Shoulders [S2, S3] are currently disabled).
+     - `S1` / `A`: Neck
+     - `S4` / `D`: Upper Back / Chest
+     - `S5` / `E`: Waist / Mid Back
+     - `S6` / `F`: Pelvis
+   - **Dynamic Safety Logic**: The Node.js backend processes the `pitch` value against configured `neutral` baselines and `tolerance` ranges (configured at session start) to determine posture safety:
+     - 🟢 **Neutral Pose**: Pitch falls within the user-defined safe baseline range (Default e.g., ±10° or -90° depending on physical mount orientation).
+     - 🟡 **Working Pose**: Pitch deviates outside Neutral Pose but remains within the user-defined `Tolerance Pose` (e.g., +10° padding).
+     - 🔴 **Bad Pose**: Pitch exceeds the Tolerance parameter entirely, presenting an ergonomic danger.
 
 ---
 
@@ -51,6 +59,7 @@ The system listens to the following hardware topics:
 - **Build Tool**: Vite (Lightning fast HMR and optimized builds)
 - **Styling**: TailwindCSS (Utility-first modern styling)
 - **3D Rendering**: Three.js (WebGL rendering for posture tracking)
+- **Charting Engine**: Recharts
 
 ### 2. Backend
 - **Runtime**: Node.js (v20 Alpine recommended)
@@ -75,34 +84,34 @@ project_root/
 │   ├── src/
 │   │   ├── components/       # Reusable UI components (e.g., buttons, cards, 3D Canvas wrappers).
 │   │   ├── pages/            # Page-level components representing different views (e.g., Dashboard, History).
-│   │   ├── hooks/            # Custom React Hooks to encapsulate logic (e.g., useSocket, useSensorData).
+│   │   ├── hooks/            # Custom React Hooks to encapsulate logic (e.g., useSocket, useSession).
 │   │   ├── services/         # API Service functions to communicate with the Backend via HTTP.
-│   │   ├── utils/            # Helper functions and utilities for formatting data or general logic.
-│   │   └── assets/           # Static files like images, icons, and 3D models (.gltf / .obj).
-│   ├── package.json          # Frontend dependencies and scripts.
-│   └── Dockerfile            # Instructions to containerize the frontend (using Nginx/Node).
+│   │   ├── utils/            # Helper functions (including three-setup.ts for procedural 3D logic).
+│   │   └── assets/           # Static files like images, icons, and 3D models (.glb).
+│   ├── package.json          
+│   └── Dockerfile            
 │
 ├── backend/                  # Server & API (Node.js + Express)
 │   ├── src/
-│   │   ├── config/           # Application and Database configuration files (loading from .env).
-│   │   ├── controllers/      # API Request/Response handlers. Extracts data from requests and passes to services.
-│   │   ├── routes/           # Defines HTTP API endpoints and maps them to controllers.
-│   │   ├── middleware/       # Express middlewares for Request Validation, Error Handling, and Authentication.
-│   │   ├── models/           # Database schemas and direct data access logic for PostgreSQL.
-│   │   ├── services/         # Core business logic. Separated from controllers for reusability.
-│   │   ├── mqtt/             # MQTT Client setup, topics subscription, and data handling from ESP32.
-│   │   ├── utils/            # Utility functions like Loggers or data transformers.
-│   │   ├── app.js            # Express application initialization and middleware bindings.
-│   │   └── server.js         # Main entry point that starts the HTTP server and Socket.io.
-│   ├── package.json          # Backend dependencies and scripts.
-│   └── Dockerfile            # Instructions to containerize the Node.js backend.
+│   │   ├── config/           # Application and Database configuration files.
+│   │   ├── controllers/      # API Request/Response handlers. 
+│   │   ├── routes/           # Defines HTTP API endpoints.
+│   │   ├── middleware/       # Express middlewares (Validation, Error Handling).
+│   │   ├── models/           # Database schemas and direct data access logic.
+│   │   ├── services/         # Core business logic. Separated from controllers.
+│   │   ├── mqtt/             # MQTT Client setup, topics subscription, and dynamic tolerance logic.
+│   │   ├── utils/            # Utility functions like Loggers.
+│   │   ├── app.js            # Express application initialization.
+│   │   └── server.js         # Main entry point that starts HTTP server and Socket.io.
+│   ├── package.json          
+│   └── Dockerfile            
 │
 ├── database/                 # Database Configuration
 │   ├── init.sql              # SQL script to initialize the PostgreSQL schema automatically on first run.
 │   ├── migration/            # Scripts to handle incremental database schema changes over time.
 │   └── seed/                 # Scripts containing initial dummy data (seeder) for testing purposes.
 │
-├── docker-compose.yml        # Docker orchestration file to run all services (frontend, backend, database) together.
+├── docker-compose.yml        # Docker orchestration file to run all services.
 ├── .env                      # Local Environment Variables file (not committed to Git).
 └── .env.example              # Template showing the required environment variables structure.
 ```

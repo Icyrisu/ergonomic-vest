@@ -4,13 +4,13 @@ const logger = require('../utils/logger');
 const sessionController = {
     async startSession(req, res, next) {
         try {
-            const { session_name, name, id, group } = req.body;
+            const { session_name, name, id, group, neutralPoses } = req.body;
             
             if (!session_name || !name || !id) {
                 return res.status(400).json({ error: 'Missing required fields' });
             }
             
-            const startedSessionName = await sessionService.startSession(session_name, name, id, group);
+            const startedSessionName = await sessionService.startSession(session_name, name, id, group, neutralPoses);
             
             if (req.app.get('io')) {
                 req.app.get('io').emit('session_status', true);

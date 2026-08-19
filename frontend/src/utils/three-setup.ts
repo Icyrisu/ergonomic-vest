@@ -114,7 +114,8 @@ export function initThreeModel(container: HTMLElement | null) {
         // --- Neck & Head ---
         bones.neck = new THREE.Group(); bones.neck.position.set(0, 0.15, 0); bones.chest.add(bones.neck);
         
-        m = new THREE.Mesh(mkCyl(0.05, 0.06, 0.06), gMat); m.position.y = 0.03; bones.neck.add(m);
+        bones.matNeck = getBoneMat();
+        m = new THREE.Mesh(mkCyl(0.05, 0.06, 0.06), bones.matNeck); m.position.y = 0.03; bones.neck.add(m);
         bones.head = new THREE.Group(); bones.head.position.set(0, 0.06, 0); bones.neck.add(bones.head);
         
         m = new THREE.Mesh(mkBall(0.15), gMat); m.position.y = 0.12; bones.head.add(m);
@@ -134,7 +135,8 @@ export function initThreeModel(container: HTMLElement | null) {
             const upperArm = new THREE.Group(); 
             anchor.add(upperArm);
             
-            m = new THREE.Mesh(mkCyl(0.075, 0.07, 0.28), gMat); m.position.y = -0.14; upperArm.add(m);
+            const matArm = getBoneMat();
+            m = new THREE.Mesh(mkCyl(0.075, 0.07, 0.28), matArm); m.position.y = -0.14; upperArm.add(m);
 
             const elbow = new THREE.Group(); elbow.position.set(0, -0.28, 0); upperArm.add(elbow);
             elbow.add(new THREE.Mesh(mkBall(0.07), jMat)); 
@@ -146,7 +148,7 @@ export function initThreeModel(container: HTMLElement | null) {
             const hand = new THREE.Group(); hand.position.set(0, -0.26, 0); forearm.add(hand);
             hand.add(new THREE.Mesh(mkBall(0.075), jMat)); 
 
-            return { anchor, shoulderPad, upperArm, elbow, forearm, hand };
+            return { anchor, shoulderPad, upperArm, elbow, forearm, hand, matArm };
         }
         const lArm = buildArm(-1);
         const rArm = buildArm(+1);
@@ -258,6 +260,33 @@ export function initThreeModel(container: HTMLElement | null) {
         // Expose so Dashboard.tsx can write targets instead of setting bone.rotation directly
         window.boneTargets = targetRotations;
 
+        window.updateBoneStatus = (boneName: string, status: string) => {
+            let mat;
+            switch(boneName) {
+                case 'pelvis': mat = bones.matPelvis; break;
+                case 'spine2': mat = bones.matSpine2; break;
+                case 'chest':  mat = bones.matChest; break;
+                case 'neck':   mat = bones.matNeck; break;
+                case 'lShoulder': mat = lArm.matArm; break;
+                case 'rShoulder': mat = rArm.matArm; break;
+            }
+            if (mat) {
+                if (status === 'Bad Pose') {
+                    mat.color.setHex(0xef4444);
+                    mat.emissive.setHex(0xb91c1c);
+                } else if (status === 'Working Pose') {
+                    mat.color.setHex(0xeab308);
+                    mat.emissive.setHex(0xca8a04);
+                } else if (status === 'Neutral Pose') {
+                    mat.color.setHex(0x22c55e);
+                    mat.emissive.setHex(0x16a34a);
+                } else {
+                    mat.color.setHex(0x7d94fc);
+                    mat.emissive.setHex(0x38bdf8);
+                }
+            }
+        };
+
         // ====================================================
         // Dynamic Sensors (3D Box style — like MPU6050 PCB)
         // ====================================================
@@ -327,8 +356,8 @@ export function initThreeModel(container: HTMLElement | null) {
         }
 
         // Shoulders (B,C): chip faces upward — sit on top of shoulder ball joint
-        addSensor(bones.lShoulder, 'B', new THREE.Vector3(-0.01, 0.06, 0), 0); // lShoulder (-X) is physically the right shoulder when facing +Z
-        addSensor(bones.rShoulder, 'C', new THREE.Vector3( 0.01, 0.06, 0), 0); // rShoulder (+X) is physically the left shoulder when facing +Z
+        // addSensor(bones.lShoulder, 'B', new THREE.Vector3(-0.01, 0.06, 0), 0); // hidden
+        // addSensor(bones.rShoulder, 'C', new THREE.Vector3( 0.01, 0.06, 0), 0); // hidden
 
         // Spine (A,D,E,F): sensor mounted flat on back, board perpendicular to spine
         //   rotX = -PI/2 → board stands up, flat face pointing outward (-Z = back of body)
@@ -344,7 +373,8 @@ export function initThreeModel(container: HTMLElement | null) {
             sensorMeshes.forEach(g => { g.visible = visible; });
         };
 
-        // Straight lines connecting sensors to central D (chest)
+        // Straight lines connecting sensors to central D (chest) - HIDDEN
+        /*
         const linkGeo = new THREE.CylinderGeometry(0.015, 0.015, 1, 6);
         const linkMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
         const lines: any = {
@@ -356,77 +386,19 @@ export function initThreeModel(container: HTMLElement | null) {
             lines[k].userData.isLine = true;
             scene.add(lines[k]);
         }
+        */
 
-        // Curve mesh for smooth spine
+        // Curve mesh for smooth spine - HIDDEN
+        /*
         const curveMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
         let curveMesh = new THREE.Mesh(new THREE.BufferGeometry(), curveMat);
         curveMesh.userData.isLine = true;
         scene.add(curveMesh);
+        */
 
         const colorGreen = new THREE.Color(0x22c55e); // Straight = Green
-        const colorYellow = new THREE.Color(0xeab308); // Slightly bent = Yellow
-        const colorOrange = new THREE.Color(0xf97316); // Bent = Orange
-        const colorRed = new THREE.Color(0xef4444);   // Very bent = Red
-
-        function getGradientColor(f) {
-            if (f < 0.33) return colorGreen.clone().lerp(colorYellow, f / 0.33);
-            if (f < 0.66) return colorYellow.clone().lerp(colorOrange, (f - 0.33) / 0.33);
-            return colorOrange.clone().lerp(colorRed, (f - 0.66) / 0.34);
-        }
-
         function updateSensorLines() {
-            const wp = (id) => { const v = new THREE.Vector3(); sensors[id].getWorldPosition(v); return v; };
-            const pA=wp('A'), pB=wp('B'), pC=wp('C'), pD=wp('D'), pE=wp('E'), pF=wp('F');
-            
-            // Measure actual "curve angle" from lines formed by straight sensor points (A, D, E, F)
-            const v1 = new THREE.Vector3().subVectors(pA, pD).normalize();
-            const v2 = new THREE.Vector3().subVectors(pD, pE).normalize();
-            const v3 = new THREE.Vector3().subVectors(pE, pF).normalize();
-            
-            // Total curve angle in radians
-            const totalCurveAngle = v1.angleTo(v2) + v2.angleTo(v3);
-                               
-            // The more curved the A-D-E-F points, the smoother the transition to red 
-            const redThresholdDeg = window.curveRedThreshold || 20;
-            const redThresholdRad = redThresholdDeg * (Math.PI / 180);
-            const bendFactor = Math.min(1, totalCurveAngle / redThresholdRad);
-            const targetColor = getGradientColor(bendFactor);
-
-            // Update UI Panel for "Total Curve"
-            const uiCurve = document.getElementById('val-curve');
-            if (uiCurve) {
-                const angleDeg = totalCurveAngle * (180 / Math.PI);
-                uiCurve.innerText = angleDeg.toFixed(2) + '°';
-                uiCurve.style.color = '#' + targetColor.getHexString();
-            }
-
-            // Color all sensor dots
-            ['A', 'B', 'C', 'D', 'E', 'F'].forEach(id => {
-                if (sensors[id] && sensors[id].children[0]) {
-                    sensors[id].children[0].material.color.copy(targetColor);
-                }
-            });
-
-            // Update straight line from shoulders/neck to chest
-            function placeCyl(mesh, ptA, ptB) {
-                const dist = ptA.distanceTo(ptB);
-                if (dist < 0.001) return;
-                mesh.position.copy(ptA).lerp(ptB, 0.5);
-                mesh.scale.set(1, dist, 1);
-                mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), ptB.clone().sub(ptA).normalize());
-                mesh.material.color.copy(targetColor);
-            }
-            placeCyl(lines['A-D'], pA, pD);
-            placeCyl(lines['B-D'], pB, pD);
-            placeCyl(lines['C-D'], pC, pD);
-
-            // Update curved back (F -> E -> D -> A)
-            const curve = new THREE.CatmullRomCurve3([pF, pE, pD, pA]);
-            curve.tension = 0.5; // Adjust curve smoothness
-            
-            if (curveMesh.geometry) curveMesh.geometry.dispose();
-            curveMesh.geometry = new THREE.TubeGeometry(curve, 20, 0.015, 6, false);
-            curveMesh.material.color.copy(targetColor);
+            // Function deprecated as per per-sensor safety logic overhaul
         }
 
 
@@ -605,7 +577,7 @@ export function initThreeModel(container: HTMLElement | null) {
             }
 
             controls.update();
-            updateSensorLines();
+            // updateSensorLines(); // DEPRECATED
 
             const cw = container.clientWidth;
             const ch = container.clientHeight;

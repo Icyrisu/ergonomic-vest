@@ -2,9 +2,9 @@ const { pool } = require('../config/database');
 const logger = require('../utils/logger');
 
 const sessionModel = {
-    async createSession(sessionName, workerName, workerId, groupName) {
-        const query = 'INSERT INTO sessions (session_name, worker_name, worker_id, group_name) VALUES ($1, $2, $3, $4)';
-        await pool.query(query, [sessionName, workerName, workerId, groupName]);
+    async createSession(sessionName, workerName, workerId, groupName, neutralPose) {
+        const query = 'INSERT INTO sessions (session_name, worker_name, worker_id, group_name, neutral_pose) VALUES ($1, $2, $3, $4, $5)';
+        await pool.query(query, [sessionName, workerName, workerId, groupName, neutralPose]);
     },
 
     async checkSessionExists(sessionName) {
@@ -24,9 +24,9 @@ const sessionModel = {
         return result.rows;
     },
 
-    async insertSessionData(sessionName, wrenchStatus, curveAngle, sensorsData) {
-        const query = 'INSERT INTO session_data (session_name, wrench_status, curve_angle, sensors) VALUES ($1, $2, $3, $4)';
-        await pool.query(query, [sessionName, wrenchStatus, curveAngle, sensorsData]);
+    async insertSessionData(sessionName, wrenchStatus, sensorsData) {
+        const query = 'INSERT INTO session_data (session_name, wrench_status, sensors) VALUES ($1, $2, $3)';
+        await pool.query(query, [sessionName, wrenchStatus, sensorsData]);
     },
 
     async getSessionDataByName(sessionName) {

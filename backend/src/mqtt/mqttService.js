@@ -8,7 +8,28 @@ let latestSensorData = {};
 let ioInstance = null;
 let client = null;
 
+let activeNeutralPoses = {
+    'UMJ/EV/S1': [0, 10],
+    'UMJ/EV/S2': [-20, 20],
+    'UMJ/EV/S3': [-20, 20],
+    'UMJ/EV/S4': [0, 20],
+    'UMJ/EV/S5': [-10, 10],
+    'UMJ/EV/S6': [-10, 10],
+};
+let activeTolerance = 10;
+
 const mqttService = {
+    setActiveSessionNeutralPoses(poses) {
+        if (poses) {
+            if (poses.tolerance !== undefined) {
+                activeTolerance = poses.tolerance;
+            } else {
+                activeTolerance = 10;
+            }
+            activeNeutralPoses = poses;
+        }
+    },
+
     init(io) {
         ioInstance = io;
         logger.info(`Starting MQTT Client connecting to: ${env.MQTT_BROKER}`);
@@ -47,11 +68,27 @@ const mqttService = {
                     const pitch = parseFloat(payload.pitch);
                     const roll = parseFloat(payload.roll);
                     
-                    let status = 'Safe';
-                    if (pitch > -45) {
-                        status = 'Danger';
-                    } else if (pitch > -60) {
-                        status = 'Warning';
+                    let status = 'Neutral Pose';
+                    const bounds = activeNeutralPoses[topic];
+                    
+                    let baseline = -90;
+                    if (topic === 'UMJ/EV/S2' || topic === 'UMJ/EV/S3') {
+                        baseline = 0;
+                    }
+                    
+                    const relativePitch = pitch - baseline;
+
+                    if (bounds && bounds.length === 2) {
+                        const min = bounds[0];
+                        const max = bounds[1];
+                        
+                        if (relativePitch >= min && relativePitch <= max) {
+                            status = 'Neutral Pose';
+                        } else if (relativePitch >= (min - activeTolerance) && relativePitch <= (max + activeTolerance)) {
+                            status = 'Working Pose';
+                        } else {
+                            status = 'Bad Pose';
+                        }
                     }
                     
                     latestSensorData[topic] = { pitch, roll, status };

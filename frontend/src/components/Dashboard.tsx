@@ -14,29 +14,8 @@ export default function Dashboard({ socket }: DashboardProps) {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isStopModalOpen, setIsStopModalOpen] = useState<boolean>(false);
   const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
-  const [redThreshold, setRedThreshold] = useState<number>(() => {
-    const saved = localStorage.getItem('curveRedThreshold');
-    return saved ? parseInt(saved, 10) : 25;
-  });
 
-  useEffect(() => {
-    // @ts-ignore
-    window.curveRedThreshold = redThreshold;
-    localStorage.setItem('curveRedThreshold', redThreshold.toString());
-  }, [redThreshold]);
 
-  // Listen for threshold changes from other devices
-  useEffect(() => {
-    if (!socket) return;
-    const handleThresholdSync = (val: number) => {
-      setRedThreshold(val);
-      // @ts-ignore
-      window.curveRedThreshold = val;
-      localStorage.setItem('curveRedThreshold', val.toString());
-    };
-    socket.on('threshold_sync', handleThresholdSync);
-    return () => { socket.off('threshold_sync', handleThresholdSync); };
-  }, [socket]);
 
   useEffect(() => {
     if (!socket) return;
@@ -66,8 +45,8 @@ export default function Dashboard({ socket }: DashboardProps) {
     };
 
     const updateSpineBones = () => {
-      if (!window.boneTargets) return;
-      const t = window.boneTargets;
+      if (!(window as any).boneTargets) return;
+      const t = (window as any).boneTargets;
 
       const bowF = spinePitch.F + 90;  // pelvis
       const bowE = spinePitch.E + 90;  // mid back
@@ -91,14 +70,29 @@ export default function Dashboard({ socket }: DashboardProps) {
       if (!sid) return;
 
       const uiLabel = document.getElementById(`val-${sid}`);
+      const uiCard = document.getElementById(`card-${sid}`);
+      
       if (uiLabel) {
         uiLabel.innerHTML = `P:${data.pitch.toFixed(1)}&deg;<br/>R:${data.roll.toFixed(1)}&deg;`;
       }
+      
+      if (uiCard) {
+        let bgClass = 'bg-slate-50 border-slate-100';
+        if (data.status === 'Bad Pose') bgClass = 'bg-red-50 border-red-200';
+        else if (data.status === 'Working Pose') bgClass = 'bg-yellow-50 border-yellow-200';
+        else if (data.status === 'Neutral Pose') bgClass = 'bg-green-50 border-green-200';
+        
+        uiCard.className = `py-2.5 px-2 lg:py-0 rounded-xl border text-center flex flex-col justify-center transition-colors ${bgClass}`;
+      }
+      
+      if ((window as any).updateBoneStatus) {
+         (window as any).updateBoneStatus(bonesMap[sid], data.status);
+      }
 
       if (sid === 'B' || sid === 'C') {
-        if (window.boneTargets) {
+        if ((window as any).boneTargets) {
           const boneName = bonesMap[sid]; 
-          const t = window.boneTargets[boneName];
+          const t = (window as any).boneTargets[boneName];
           if (t) {
             const bowArm = data.pitch;
             const bowChest = spinePitch.D !== undefined ? spinePitch.D + 90 : 0;
@@ -109,12 +103,6 @@ export default function Dashboard({ socket }: DashboardProps) {
       } else {
         spinePitch[sid] = data.pitch;
         updateSpineBones();
-        
-        if (sid === 'A' || sid === 'F') {
-          const curve = Math.abs(spinePitch['A'] - spinePitch['F']);
-          const uiCurve = document.getElementById('val-curve');
-          if (uiCurve) uiCurve.innerHTML = `${curve.toFixed(2)}&deg;`;
-        }
       }
     };
 
@@ -203,48 +191,17 @@ export default function Dashboard({ socket }: DashboardProps) {
           <div className="flex flex-col gap-2 lg:flex-1 lg:min-h-0 lg:gap-1.5">
             <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-1.5 uppercase tracking-wider">Angle Values</h3>
 
-            <div className="flex justify-between items-center bg-slate-800 text-white p-3 rounded-xl shadow-md shrink-0">
-              <div>
-                <p className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-0.5">Total Curve Angle</p>
-                <p id="val-curve" className="text-xl font-bold text-green-400 leading-tight">0.00°</p>
-              </div>
-              <div className="p-2.5 bg-slate-700 rounded-lg shadow-inner border border-slate-600/50">
-                <Activity className="w-5 h-5 text-sky-400" />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl shrink-0">
-              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Danger Limit</p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    const val = Math.max(10, redThreshold - 5);
-                    setRedThreshold(val);
-                    if (socket) socket.emit('threshold_change', val);
-                  }}
-                  className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition-all font-bold"
-                >-</button>
-                <span className="text-sm font-bold w-8 text-center text-red-500">{redThreshold}&deg;</span>
-                <button
-                  onClick={() => {
-                    const val = Math.min(90, redThreshold + 5);
-                    setRedThreshold(val);
-                    if (socket) socket.emit('threshold_change', val);
-                  }}
-                  className="w-7 h-7 rounded-md bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition-all font-bold"
-                >+</button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 lg:gap-1.5 lg:flex-1 lg:auto-rows-fr">
+            <div className="grid grid-cols-2 lg:grid-cols-2 gap-2 lg:gap-1.5 lg:flex-1 lg:auto-rows-fr">
               {[
-                {id: 'A', label: 'A (Neck)'},           {id: 'B', label: 'B (Right Shoulder)'},
-                {id: 'C', label: 'C (Left Shoulder)'},  {id: 'D', label: 'D (Upper Back)'},
-                {id: 'E', label: 'E (Mid Back)'},       {id: 'F', label: 'F (Pelvis)'}
+                {id: 'A', label: 'A (Neck)'},
+                {id: 'D', label: 'D (Upper Back)'},
+                {id: 'E', label: 'E (Mid Back)'},
+                {id: 'F', label: 'F (Pelvis)'}
               ].map(s => (
-                <div key={s.id} className="bg-slate-50 py-2.5 px-2 lg:py-0 rounded-xl border border-slate-100 text-center flex flex-col justify-center">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{s.label}</p>
-                  <p id={`val-${s.id}`} className="text-xs font-mono font-bold text-slate-800 mt-0.5 lg:mt-1">--</p>
+                <div key={s.id} id={`card-${s.id}`} className="bg-slate-50 py-2.5 px-2 lg:py-0 rounded-xl border border-slate-100 text-center flex flex-col justify-center transition-colors">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{s.label}</p>
+                  <p id={`val-${s.id}`} className="text-sm font-bold text-slate-800 my-0.5">--&deg;</p>
+                  <p id={`status-${s.id}`} className="text-xs font-bold text-slate-400 uppercase tracking-wider">-</p>
                 </div>
               ))}
             </div>
@@ -256,7 +213,7 @@ export default function Dashboard({ socket }: DashboardProps) {
             <div className="flex justify-between items-center bg-slate-800 text-white p-3 rounded-xl shadow-md">
               <div>
                 <p className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-0.5">Current Status</p>
-                <p className={`text-xl font-bold leading-tight ${wrenchStatus ? 'text-green-400' : 'text-red-400'}`}>
+                <p className={`text-3xl font-bold leading-tight ${wrenchStatus ? 'text-green-400' : 'text-red-400'}`}>
                   {wrenchStatus ? 'ON' : 'OFF'}
                 </p>
               </div>

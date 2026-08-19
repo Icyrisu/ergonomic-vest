@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -24,6 +24,7 @@ interface Session {
 interface SensorData {
   pitch: number;
   roll: number;
+  status?: string;
 }
 
 interface RawSessionData {
@@ -37,7 +38,10 @@ interface RawSessionData {
 interface ChartPoint {
   time: string;
   raw_time: string;
-  curve_angle: number | null;
+  s1_pitch: number | null; s1_status: string;
+  s4_pitch: number | null; s4_status: string;
+  s5_pitch: number | null; s5_status: string;
+  s6_pitch: number | null; s6_status: string;
   status: string;
   raw_data: RawSessionData;
 }
@@ -91,11 +95,28 @@ export default function DataHistory() {
         const formattedData: ChartPoint[] = data.map(row => {
           const timeObj = new Date(row.recorded_at);
           const timeStr = timeObj.toLocaleTimeString();
+          
+          let s1Pitch = null, s4Pitch = null, s5Pitch = null, s6Pitch = null;
+          let s1Status = 'Neutral Pose', s4Status = 'Neutral Pose', s5Status = 'Neutral Pose', s6Status = 'Neutral Pose';
+          
+          if (row.sensors) {
+             s1Pitch = row.sensors['UMJ/EV/S1']?.pitch ?? null;
+             s1Status = row.sensors['UMJ/EV/S1']?.status ?? 'Neutral Pose';
+             s4Pitch = row.sensors['UMJ/EV/S4']?.pitch ?? null;
+             s4Status = row.sensors['UMJ/EV/S4']?.status ?? 'Neutral Pose';
+             s5Pitch = row.sensors['UMJ/EV/S5']?.pitch ?? null;
+             s5Status = row.sensors['UMJ/EV/S5']?.status ?? 'Neutral Pose';
+             s6Pitch = row.sensors['UMJ/EV/S6']?.pitch ?? null;
+             s6Status = row.sensors['UMJ/EV/S6']?.status ?? 'Neutral Pose';
+          }
+          
           return {
             time: timeStr,
             raw_time: timeObj.toISOString(),
-            // If offline, we drop to 0 degrees
-            curve_angle: row.wrench_status === 'ONLINE' ? parseFloat(String(row.curve_angle)) : 0,
+            s1_pitch: s1Pitch, s1_status: s1Status,
+            s4_pitch: s4Pitch, s4_status: s4Status,
+            s5_pitch: s5Pitch, s5_status: s5Status,
+            s6_pitch: s6Pitch, s6_status: s6Status,
             status: row.wrench_status,
             raw_data: row
           };
@@ -167,9 +188,8 @@ export default function DataHistory() {
       const ts = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
       
       const status = point.status === 'ONLINE' ? 'ON' : 'OFF';
-      const curve = row.curve_angle !== null ? row.curve_angle : "";
       
-      let rowCsv = `${ts},${status},${curve}`;
+      let rowCsv = `${ts},${status},`;
       
       const sensors = row.sensors || {};
       sensorCols.forEach(col => {
@@ -195,23 +215,44 @@ export default function DataHistory() {
     document.body.removeChild(link);
   };
 
+  const CustomDot = (props: any) => {
+    const { cx, cy, payload, dataKey } = props;
+    if (cx === undefined || cy === undefined) return null;
+    
+    let status = 'Neutral Pose';
+    if (dataKey === 's1_pitch') status = payload.s1_status;
+    else if (dataKey === 's4_pitch') status = payload.s4_status;
+    else if (dataKey === 's5_pitch') status = payload.s5_status;
+    else if (dataKey === 's6_pitch') status = payload.s6_status;
+    
+    let fill = '#22c55e'; // green (Neutral)
+    if (status === 'Bad Pose' || status === 'Danger') fill = '#ef4444'; // red (Bad)
+    else if (status === 'Working Pose' || status === 'Warning') fill = '#eab308'; // yellow (Working)
+    
+    return (
+      <circle cx={cx} cy={cy} r={4} strokeWidth={0} fill={fill} />
+    );
+  };
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const dataPoint = payload[0].payload;
       return (
         <div className="bg-white p-3 border border-slate-200 shadow-md rounded-xl">
           <p className="text-sm font-bold text-slate-800 mb-1">{label}</p>
-          {dataPoint.status === 'OFFLINE' ? (
-            <p className="text-sm font-bold text-red-500">WRENCH OFF</p>
-          ) : (
-            <p className="text-sm text-blue-600">
-              Curve Angle: <span className="font-bold">{dataPoint.curve_angle}&deg;</span>
-            </p>
+          {dataPoint.status === 'OFFLINE' && (
+            <p className="text-sm font-bold text-red-500 mb-2 border-b border-slate-100 pb-1">WRENCH OFF</p>
           )}
+          <div className="flex flex-col gap-1 text-sm">
+             <p className="text-blue-900">S1 (Neck): <span className="font-bold">{dataPoint.s1_pitch ?? '-'}°</span> ({dataPoint.s1_status})</p>
+             <p className="text-blue-700">S4 (Upper Back): <span className="font-bold">{dataPoint.s4_pitch ?? '-'}°</span> ({dataPoint.s4_status})</p>
+             <p className="text-blue-500">S5 (Waist): <span className="font-bold">{dataPoint.s5_pitch ?? '-'}°</span> ({dataPoint.s5_status})</p>
+             <p className="text-blue-400">S6 (Pelvis): <span className="font-bold">{dataPoint.s6_pitch ?? '-'}°</span> ({dataPoint.s6_status})</p>
+          </div>
         </div>
       );
     }
-    // Tooltip for offline ranges (if hovering directly over empty line space)
+    // Tooltip for offline ranges
     if (active && !payload?.length) {
        return (
         <div className="bg-white p-3 border border-slate-200 shadow-md rounded-xl">
@@ -230,7 +271,7 @@ export default function DataHistory() {
       <div className="mb-6 shrink-0 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 mb-1">Session Data Report</h2>
-          <p className="text-slate-500 text-sm">Analyze curve angle and export raw sensor data.</p>
+          <p className="text-slate-500 text-sm">Analyze multi-sensor pitch and export raw sensor data.</p>
         </div>
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -298,16 +339,10 @@ export default function DataHistory() {
         )}
 
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
+          <LineChart
             data={chartData}
             margin={{ top: 20, right: 30, left: 0, bottom: 20 }}
           >
-            <defs>
-              <linearGradient id="colorCurve" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/>
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
             <XAxis 
               dataKey="time" 
@@ -333,22 +368,15 @@ export default function DataHistory() {
                 x2={range.end} 
                 fill="#ef4444" 
                 fillOpacity={0.05} 
-                label={{ position: 'insideTop', value: `OFF (${range.durationStr})`, fill: '#ef4444', fontSize: 12, fontWeight: 'bold' }}
               />
             ))}
             
             <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '12px', fontWeight: 500, color: '#475569' }}/>
-            <Area 
-              type="monotone" 
-              name="Curve Angle (Chest - Pelvis)"
-              dataKey="curve_angle" 
-              stroke="#3b82f6" 
-              strokeWidth={3} 
-              fill="url(#colorCurve)"
-              activeDot={{ r: 6, strokeWidth: 0, fill: '#2563eb' }}
-              connectNulls={true} 
-            />
-          </AreaChart>
+            <Line type="monotone" name="S1 (Neck)" dataKey="s1_pitch" stroke="#1e3a8a" strokeWidth={2} dot={<CustomDot dataKey="s1_pitch" />} activeDot={<CustomDot dataKey="s1_pitch" />} connectNulls={true} />
+            <Line type="monotone" name="S4 (Upper Back)" dataKey="s4_pitch" stroke="#1d4ed8" strokeWidth={2} dot={<CustomDot dataKey="s4_pitch" />} activeDot={<CustomDot dataKey="s4_pitch" />} connectNulls={true} />
+            <Line type="monotone" name="S5 (Waist)" dataKey="s5_pitch" stroke="#3b82f6" strokeWidth={2} dot={<CustomDot dataKey="s5_pitch" />} activeDot={<CustomDot dataKey="s5_pitch" />} connectNulls={true} />
+            <Line type="monotone" name="S6 (Pelvis)" dataKey="s6_pitch" stroke="#60a5fa" strokeWidth={2} dot={<CustomDot dataKey="s6_pitch" />} activeDot={<CustomDot dataKey="s6_pitch" />} connectNulls={true} />
+          </LineChart>
         </ResponsiveContainer>
       </div>
     </div>

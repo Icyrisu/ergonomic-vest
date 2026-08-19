@@ -1,7 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 export const api = {
-  async startSession(data: { session_name: string; name: string; id: string; group: string }) {
+  async startSession(data: { session_name: string; name: string; id: string; group: string; neutralPoses: any }) {
     const response = await fetch(`${API_BASE_URL}/api/sessions/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

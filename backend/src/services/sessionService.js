@@ -18,22 +18,10 @@ const recordData = async () => {
     }
 
     const wrenchStatus = mqttService.getWrenchStatus() === 'ON' ? 'ONLINE' : 'OFFLINE';
-    let sensorsData = null;
-    let curveAngle = null;
-
-    if (wrenchStatus === 'ONLINE') {
-        const data = mqttService.getLatestSensorData();
-        // Calculate curve angle: Leher(UMJ/EV/S1) pitch - Pelvis(UMJ/EV/S6) pitch
-        if (data['UMJ/EV/S1'] && data['UMJ/EV/S6']) {
-            const neckPitch = data['UMJ/EV/S1'].pitch;
-            const pelvisPitch = data['UMJ/EV/S6'].pitch;
-            curveAngle = Math.abs(neckPitch - pelvisPitch);
-        }
-        sensorsData = data;
-    }
+    const sensorsData = mqttService.getLatestSensorData();
 
     try {
-        await sessionModel.insertSessionData(activeSession, wrenchStatus, curveAngle, sensorsData);
+        await sessionModel.insertSessionData(activeSession, wrenchStatus, sensorsData);
     } catch (err) {
         logger.error('Failed to record session data:', err.message);
     }
@@ -46,7 +34,7 @@ const sessionService = {
         return activeSession;
     },
 
-    async startSession(sessionName, workerName, workerId, groupName) {
+    async startSession(sessionName, workerName, workerId, groupName, neutralPoses) {
         if (activeSession) {
             throw new Error('A session is already active');
         }
@@ -56,8 +44,12 @@ const sessionService = {
             throw new Error('Session name already exists');
         }
 
-        await sessionModel.createSession(sessionName, workerName, workerId, groupName || null);
+        await sessionModel.createSession(sessionName, workerName, workerId, groupName || null, JSON.stringify(neutralPoses));
         activeSession = sessionName;
+        
+        if (mqttService) {
+            mqttService.setActiveSessionNeutralPoses(neutralPoses);
+        }
         
         // Start 1-second recording loop
         recordInterval = setInterval(recordData, 1000);
