@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Socket } from 'socket.io-client';
-import { Activity } from 'lucide-react';
+
 import ThreeModel from './ThreeModel';
 import StartSessionModal from './dashboard/StartSessionModal';
 import StopSessionModal from './dashboard/StopSessionModal';

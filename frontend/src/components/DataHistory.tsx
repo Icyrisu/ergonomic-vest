@@ -12,14 +12,6 @@ import {
 } from 'recharts';
 import { Download } from 'lucide-react';
 import { useSessions } from '../hooks/useSessions';
-interface Session {
-  session_name: string;
-  worker_name: string;
-  worker_id: string;
-  group_name: string;
-  created_at: string;
-  ended_at: string | null;
-}
 
 interface SensorData {
   pitch: number;
@@ -53,6 +45,7 @@ export default function DataHistory() {
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [hiddenLines, setHiddenLines] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchSessions().finally(() => setLoading(false));
@@ -264,6 +257,14 @@ export default function DataHistory() {
     return null;
   };
 
+  const handleLegendClick = (e: any) => {
+    if (!e?.dataKey) return;
+    setHiddenLines(prev => ({
+      ...prev,
+      [e.dataKey]: !prev[e.dataKey]
+    }));
+  };
+
   return (
     <div className="h-full flex flex-col bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-200 min-h-0">
       
@@ -371,11 +372,20 @@ export default function DataHistory() {
               />
             ))}
             
-            <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '12px', fontWeight: 500, color: '#475569' }}/>
-            <Line type="monotone" name="S1 (Neck)" dataKey="s1_pitch" stroke="#1e3a8a" strokeWidth={2} dot={<CustomDot dataKey="s1_pitch" />} activeDot={<CustomDot dataKey="s1_pitch" />} connectNulls={true} />
-            <Line type="monotone" name="S4 (Upper Back)" dataKey="s4_pitch" stroke="#1d4ed8" strokeWidth={2} dot={<CustomDot dataKey="s4_pitch" />} activeDot={<CustomDot dataKey="s4_pitch" />} connectNulls={true} />
-            <Line type="monotone" name="S5 (Waist)" dataKey="s5_pitch" stroke="#3b82f6" strokeWidth={2} dot={<CustomDot dataKey="s5_pitch" />} activeDot={<CustomDot dataKey="s5_pitch" />} connectNulls={true} />
-            <Line type="monotone" name="S6 (Pelvis)" dataKey="s6_pitch" stroke="#60a5fa" strokeWidth={2} dot={<CustomDot dataKey="s6_pitch" />} activeDot={<CustomDot dataKey="s6_pitch" />} connectNulls={true} />
+            <Legend 
+              verticalAlign="top" 
+              height={36} 
+              wrapperStyle={{ fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}
+              onClick={handleLegendClick}
+              formatter={(value, entry: any) => {
+                const isActive = !hiddenLines[entry.dataKey];
+                return <span style={{ color: isActive ? '#475569' : '#cbd5e1', transition: 'color 0.2s' }}>{value}</span>;
+              }}
+            />
+            <Line type="monotone" name="S1 (Neck)" dataKey="s1_pitch" hide={hiddenLines['s1_pitch']} stroke="#1e3a8a" strokeWidth={2} dot={<CustomDot dataKey="s1_pitch" />} activeDot={<CustomDot dataKey="s1_pitch" />} connectNulls={true} />
+            <Line type="monotone" name="S4 (Upper Back)" dataKey="s4_pitch" hide={hiddenLines['s4_pitch']} stroke="#1d4ed8" strokeWidth={2} dot={<CustomDot dataKey="s4_pitch" />} activeDot={<CustomDot dataKey="s4_pitch" />} connectNulls={true} />
+            <Line type="monotone" name="S5 (Waist)" dataKey="s5_pitch" hide={hiddenLines['s5_pitch']} stroke="#3b82f6" strokeWidth={2} dot={<CustomDot dataKey="s5_pitch" />} activeDot={<CustomDot dataKey="s5_pitch" />} connectNulls={true} />
+            <Line type="monotone" name="S6 (Pelvis)" dataKey="s6_pitch" hide={hiddenLines['s6_pitch']} stroke="#60a5fa" strokeWidth={2} dot={<CustomDot dataKey="s6_pitch" />} activeDot={<CustomDot dataKey="s6_pitch" />} connectNulls={true} />
           </LineChart>
         </ResponsiveContainer>
       </div>
