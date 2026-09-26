@@ -71,6 +71,7 @@ export default function Dashboard({ socket }: DashboardProps) {
 
       const uiLabel = document.getElementById(`val-${sid}`);
       const uiCard = document.getElementById(`card-${sid}`);
+      const uiStatus = document.getElementById(`status-${sid}`);
       
       if (uiLabel) {
         uiLabel.innerHTML = `P:${data.pitch.toFixed(1)}&deg;<br/>R:${data.roll.toFixed(1)}&deg;`;
@@ -82,7 +83,15 @@ export default function Dashboard({ socket }: DashboardProps) {
         else if (data.status === 'Working Pose') bgClass = 'bg-yellow-50 border-yellow-200';
         else if (data.status === 'Neutral Pose') bgClass = 'bg-green-50 border-green-200';
         
-        uiCard.className = `py-2.5 px-2 lg:py-0 rounded-xl border text-center flex flex-col justify-center transition-colors ${bgClass}`;
+        uiCard.className = `py-2 px-2 lg:py-1 rounded-xl border text-center flex flex-col justify-center transition-colors ${bgClass}`;
+      }
+
+      if (uiStatus) {
+        uiStatus.innerText = data.status || '-';
+        if (data.status === 'Bad Pose') uiStatus.className = 'text-xs font-bold text-red-600 uppercase tracking-wider';
+        else if (data.status === 'Working Pose') uiStatus.className = 'text-xs font-bold text-yellow-600 uppercase tracking-wider';
+        else if (data.status === 'Neutral Pose') uiStatus.className = 'text-xs font-bold text-green-600 uppercase tracking-wider';
+        else uiStatus.className = 'text-xs font-bold text-slate-400 uppercase tracking-wider';
       }
       
       if ((window as any).updateBoneStatus) {
@@ -193,12 +202,14 @@ export default function Dashboard({ socket }: DashboardProps) {
 
             <div className="grid grid-cols-2 lg:grid-cols-2 gap-2 lg:gap-1.5 lg:flex-1 lg:auto-rows-fr">
               {[
-                {id: 'A', label: 'A (Neck)'},
-                {id: 'D', label: 'D (Upper Back)'},
-                {id: 'E', label: 'E (Mid Back)'},
-                {id: 'F', label: 'F (Pelvis)'}
+                {id: 'A', label: 'S1 (Neck)'},
+                {id: 'B', label: 'S2 (Right Arm)'},
+                {id: 'C', label: 'S3 (Left Arm)'},
+                {id: 'D', label: 'S4 (Upper Back)'},
+                {id: 'E', label: 'S5 (Mid Back)'},
+                {id: 'F', label: 'S6 (Pelvis)'}
               ].map(s => (
-                <div key={s.id} id={`card-${s.id}`} className="bg-slate-50 py-2.5 px-2 lg:py-0 rounded-xl border border-slate-100 text-center flex flex-col justify-center transition-colors">
+                <div key={s.id} id={`card-${s.id}`} className="bg-slate-50 py-2 px-2 lg:py-1 rounded-xl border border-slate-100 text-center flex flex-col justify-center transition-colors">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{s.label}</p>
                   <p id={`val-${s.id}`} className="text-sm font-bold text-slate-800 my-0.5">--&deg;</p>
                   <p id={`status-${s.id}`} className="text-xs font-bold text-slate-400 uppercase tracking-wider">-</p>

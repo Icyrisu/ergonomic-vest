@@ -133,6 +133,8 @@ export default function StartSessionModal({ isOpen, onClose, onSuccess }: StartS
               <div className="flex flex-col gap-4">
                 {[
                   { id: 'UMJ/EV/S1', label: 'Neck (S1)' },
+                  { id: 'UMJ/EV/S2', label: 'Right Arm (S2)' },
+                  { id: 'UMJ/EV/S3', label: 'Left Arm (S3)' },
                   { id: 'UMJ/EV/S4', label: 'Upper Back (S4)' },
                   { id: 'UMJ/EV/S5', label: 'Waist (S5)' },
                   { id: 'UMJ/EV/S6', label: 'Pelvis (S6)' }

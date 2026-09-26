@@ -356,8 +356,8 @@ export function initThreeModel(container: HTMLElement | null) {
         }
 
         // Shoulders (B,C): chip faces upward — sit on top of shoulder ball joint
-        // addSensor(bones.lShoulder, 'B', new THREE.Vector3(-0.01, 0.06, 0), 0); // hidden
-        // addSensor(bones.rShoulder, 'C', new THREE.Vector3( 0.01, 0.06, 0), 0); // hidden
+        addSensor(bones.lShoulder, 'B', new THREE.Vector3(-0.01, 0.06, 0), 0);
+        addSensor(bones.rShoulder, 'C', new THREE.Vector3( 0.01, 0.06, 0), 0);
 
         // Spine (A,D,E,F): sensor mounted flat on back, board perpendicular to spine
         //   rotX = -PI/2 → board stands up, flat face pointing outward (-Z = back of body)

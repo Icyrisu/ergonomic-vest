@@ -31,6 +31,8 @@ interface ChartPoint {
   time: string;
   raw_time: string;
   s1_pitch: number | null; s1_status: string;
+  s2_pitch: number | null; s2_status: string;
+  s3_pitch: number | null; s3_status: string;
   s4_pitch: number | null; s4_status: string;
   s5_pitch: number | null; s5_status: string;
   s6_pitch: number | null; s6_status: string;
@@ -89,12 +91,16 @@ export default function DataHistory() {
           const timeObj = new Date(row.recorded_at);
           const timeStr = timeObj.toLocaleTimeString();
           
-          let s1Pitch = null, s4Pitch = null, s5Pitch = null, s6Pitch = null;
-          let s1Status = 'Neutral Pose', s4Status = 'Neutral Pose', s5Status = 'Neutral Pose', s6Status = 'Neutral Pose';
+          let s1Pitch = null, s2Pitch = null, s3Pitch = null, s4Pitch = null, s5Pitch = null, s6Pitch = null;
+          let s1Status = 'Neutral Pose', s2Status = 'Neutral Pose', s3Status = 'Neutral Pose', s4Status = 'Neutral Pose', s5Status = 'Neutral Pose', s6Status = 'Neutral Pose';
           
           if (row.sensors) {
              s1Pitch = row.sensors['UMJ/EV/S1']?.pitch ?? null;
              s1Status = row.sensors['UMJ/EV/S1']?.status ?? 'Neutral Pose';
+             s2Pitch = row.sensors['UMJ/EV/S2']?.pitch ?? null;
+             s2Status = row.sensors['UMJ/EV/S2']?.status ?? 'Neutral Pose';
+             s3Pitch = row.sensors['UMJ/EV/S3']?.pitch ?? null;
+             s3Status = row.sensors['UMJ/EV/S3']?.status ?? 'Neutral Pose';
              s4Pitch = row.sensors['UMJ/EV/S4']?.pitch ?? null;
              s4Status = row.sensors['UMJ/EV/S4']?.status ?? 'Neutral Pose';
              s5Pitch = row.sensors['UMJ/EV/S5']?.pitch ?? null;
@@ -107,6 +113,8 @@ export default function DataHistory() {
             time: timeStr,
             raw_time: timeObj.toISOString(),
             s1_pitch: s1Pitch, s1_status: s1Status,
+            s2_pitch: s2Pitch, s2_status: s2Status,
+            s3_pitch: s3Pitch, s3_status: s3Status,
             s4_pitch: s4Pitch, s4_status: s4Status,
             s5_pitch: s5Pitch, s5_status: s5Status,
             s6_pitch: s6Pitch, s6_status: s6Status,
@@ -214,6 +222,8 @@ export default function DataHistory() {
     
     let status = 'Neutral Pose';
     if (dataKey === 's1_pitch') status = payload.s1_status;
+    else if (dataKey === 's2_pitch') status = payload.s2_status;
+    else if (dataKey === 's3_pitch') status = payload.s3_status;
     else if (dataKey === 's4_pitch') status = payload.s4_status;
     else if (dataKey === 's5_pitch') status = payload.s5_status;
     else if (dataKey === 's6_pitch') status = payload.s6_status;
@@ -238,6 +248,8 @@ export default function DataHistory() {
           )}
           <div className="flex flex-col gap-1 text-sm">
              <p className="text-blue-900">S1 (Neck): <span className="font-bold">{dataPoint.s1_pitch ?? '-'}°</span> ({dataPoint.s1_status})</p>
+             <p className="text-cyan-700">S2 (Right Arm): <span className="font-bold">{dataPoint.s2_pitch ?? '-'}°</span> ({dataPoint.s2_status})</p>
+             <p className="text-purple-700">S3 (Left Arm): <span className="font-bold">{dataPoint.s3_pitch ?? '-'}°</span> ({dataPoint.s3_status})</p>
              <p className="text-blue-700">S4 (Upper Back): <span className="font-bold">{dataPoint.s4_pitch ?? '-'}°</span> ({dataPoint.s4_status})</p>
              <p className="text-blue-500">S5 (Waist): <span className="font-bold">{dataPoint.s5_pitch ?? '-'}°</span> ({dataPoint.s5_status})</p>
              <p className="text-blue-400">S6 (Pelvis): <span className="font-bold">{dataPoint.s6_pitch ?? '-'}°</span> ({dataPoint.s6_status})</p>
@@ -383,6 +395,8 @@ export default function DataHistory() {
               }}
             />
             <Line type="monotone" name="S1 (Neck)" dataKey="s1_pitch" hide={hiddenLines['s1_pitch']} stroke="#1e3a8a" strokeWidth={2} dot={<CustomDot dataKey="s1_pitch" />} activeDot={<CustomDot dataKey="s1_pitch" />} connectNulls={true} />
+            <Line type="monotone" name="S2 (Right Arm)" dataKey="s2_pitch" hide={hiddenLines['s2_pitch']} stroke="#0891b2" strokeWidth={2} dot={<CustomDot dataKey="s2_pitch" />} activeDot={<CustomDot dataKey="s2_pitch" />} connectNulls={true} />
+            <Line type="monotone" name="S3 (Left Arm)" dataKey="s3_pitch" hide={hiddenLines['s3_pitch']} stroke="#7c3aed" strokeWidth={2} dot={<CustomDot dataKey="s3_pitch" />} activeDot={<CustomDot dataKey="s3_pitch" />} connectNulls={true} />
             <Line type="monotone" name="S4 (Upper Back)" dataKey="s4_pitch" hide={hiddenLines['s4_pitch']} stroke="#1d4ed8" strokeWidth={2} dot={<CustomDot dataKey="s4_pitch" />} activeDot={<CustomDot dataKey="s4_pitch" />} connectNulls={true} />
             <Line type="monotone" name="S5 (Waist)" dataKey="s5_pitch" hide={hiddenLines['s5_pitch']} stroke="#3b82f6" strokeWidth={2} dot={<CustomDot dataKey="s5_pitch" />} activeDot={<CustomDot dataKey="s5_pitch" />} connectNulls={true} />
             <Line type="monotone" name="S6 (Pelvis)" dataKey="s6_pitch" hide={hiddenLines['s6_pitch']} stroke="#60a5fa" strokeWidth={2} dot={<CustomDot dataKey="s6_pitch" />} activeDot={<CustomDot dataKey="s6_pitch" />} connectNulls={true} />
