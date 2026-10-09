@@ -215,3 +215,11 @@ npm run dev
   docker compose down -v
   docker compose up -d --build
   ```
+
+---
+
+## 🌐 Production & VPS Deployment
+
+For deploying this dashboard to a VPS (e.g. 2 Core, 4GB RAM) using Docker and Nginx Reverse Proxy, follow our dedicated step-by-step beginner guide:
+👉 **[Read DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)**
+

@@ -1,0 +1,65 @@
+services:
+  database:
+    container_name: ev-database
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-ergonomic_vest}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    # Port 5432 diamankan di dalam jaringan internal Docker (tidak bocor ke internet publik)
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-ergonomic_vest}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ev-network
+
+  backend:
+    container_name: ev-backend
+    build:
+      context: ./backend
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-ergonomic_vest}
+      - MQTT_BROKER=${MQTT_BROKER:-wss://broker.hivemq.com:8884/mqtt}
+      - PORT=3000
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ev-network
+
+  frontend:
+    container_name: ev-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    ports:
+      # Port 80 dipublikasikan ke luar agar bisa diakses langsung via http://IP_VPS
+      - "${FRONTEND_PORT:-80}:80"
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ev-network
+
+volumes:
+  pgdata:
+
+networks:
+  ev-network:
+    driver: bridge
