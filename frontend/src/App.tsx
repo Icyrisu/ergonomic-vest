@@ -45,10 +45,8 @@ export default function App() {
           </div>
         </header>
 
-        {/* Content Area:
-            - Mobile: scrollable (overflow-y-auto)
-            - Desktop (lg+): fixed height, no page scroll (overflow-hidden) */}
-        <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden p-3 md:p-4 lg:p-5">
+        {/* Content Area: fully responsive with clean scroll when viewport height is constrained */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3 md:p-4">
           {activeTab === 'dashboard' ? <Dashboard socket={socket} /> : <DataHistory />}
         </div>
 
