@@ -41,7 +41,8 @@ const mqttService = {
             
             const topics = [
                 'UMJ/EV/WR', 'UMJ/EV/S1', 'UMJ/EV/S2', 
-                'UMJ/EV/S3', 'UMJ/EV/S4', 'UMJ/EV/S5', 'UMJ/EV/S6'
+                'UMJ/EV/S3', 'UMJ/EV/S4', 'UMJ/EV/S5', 'UMJ/EV/S6',
+                'UMJ/EV/RESP'
             ];
             
             topics.forEach(t => {
@@ -56,6 +57,14 @@ const mqttService = {
             try {
                 const payload = JSON.parse(message.toString());
                 
+                if (topic === 'UMJ/EV/RESP') {
+                    logger.info(`Received hardware response on UMJ/EV/RESP: ${message.toString()}`);
+                    if (ioInstance) {
+                        ioInstance.emit('tare_ack', payload);
+                    }
+                    return;
+                }
+
                 if (topic === 'UMJ/EV/WR' && payload.value) {
                     currentWrenchStatus = payload.value;
                     if (ioInstance) {
@@ -128,6 +137,14 @@ const mqttService = {
         if (isConnected && client) {
             currentWrenchStatus = value;
             client.publish('UMJ/EV/WR', JSON.stringify({ value: value }));
+        }
+    },
+
+    publishCommand(cmd, extra = {}) {
+        if (isConnected && client) {
+            const payload = JSON.stringify({ command: cmd, timestamp: Date.now(), ...extra });
+            client.publish('UMJ/EV/CMD', payload);
+            logger.info(`Published command to UMJ/EV/CMD: ${payload}`);
         }
     }
 };

@@ -60,6 +60,12 @@ const startServer = async () => {
             }
         });
 
+        socket.on('tare_request', () => {
+            logger.info('Tare command requested by frontend');
+            mqttService.publishCommand('tare');
+            io.emit('tare_synced', { success: true, timestamp: Date.now() });
+        });
+
         socket.on('disconnect', () => {
             logger.info(`Frontend disconnected from Socket.io: ${socket.id}`);
         });

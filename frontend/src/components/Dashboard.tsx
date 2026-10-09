@@ -162,9 +162,16 @@ export default function Dashboard({ socket }: DashboardProps) {
       setIsSessionActive(isActive);
     };
 
+    const handleTareAck = () => {
+      setTareFeedback('Zero Reference Set (0°)');
+      setTimeout(() => setTareFeedback(null), 3000);
+    };
+
     socket.on('sensor_data', handleSensorData);
     socket.on('wrench_status', handleWrenchStatus);
     socket.on('session_status', handleSessionStatus);
+    socket.on('tare_synced', handleTareAck);
+    socket.on('tare_ack', handleTareAck);
 
     socket.emit('request_session_status');
 
@@ -172,6 +179,8 @@ export default function Dashboard({ socket }: DashboardProps) {
       socket.off('sensor_data', handleSensorData);
       socket.off('wrench_status', handleWrenchStatus);
       socket.off('session_status', handleSessionStatus);
+      socket.off('tare_synced', handleTareAck);
+      socket.off('tare_ack', handleTareAck);
     };
   }, [socket]);
 
