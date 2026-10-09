@@ -64,9 +64,8 @@ const mqttService = {
                     return;
                 }
                 
-                if (payload.pitch !== undefined && payload.roll !== undefined) {
+                if (payload.pitch !== undefined) {
                     const pitch = parseFloat(payload.pitch);
-                    const roll = parseFloat(payload.roll);
                     
                     let status = 'Neutral Pose';
                     const bounds = activeNeutralPoses[topic];
@@ -91,10 +90,10 @@ const mqttService = {
                         }
                     }
                     
-                    latestSensorData[topic] = { pitch, roll, status };
+                    latestSensorData[topic] = { pitch, status };
                     
                     if (ioInstance) {
-                        ioInstance.emit('sensor_data', { topic, pitch, roll, status });
+                        ioInstance.emit('sensor_data', { topic, pitch, status });
                     }
                 }
             } catch (err) {

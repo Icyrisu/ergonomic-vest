@@ -15,7 +15,7 @@ import { useSessions } from '../hooks/useSessions';
 
 interface SensorData {
   pitch: number;
-  roll: number;
+  roll?: number;
   status?: string;
 }
 
@@ -177,7 +177,7 @@ export default function DataHistory() {
 
     let csvContent = "Timestamp,Wrench Status,Curve Angle";
     sensorCols.forEach(col => {
-      csvContent += `,${col.label} Pitch,${col.label} Roll`;
+      csvContent += `,${col.label} Pitch`;
     });
     csvContent += "\n";
 
@@ -195,10 +195,10 @@ export default function DataHistory() {
       const sensors = row.sensors || {};
       sensorCols.forEach(col => {
         const sData = sensors[col.id];
-        if (sData) {
-          rowCsv += `,${sData.pitch},${sData.roll}`;
+        if (sData && sData.pitch !== undefined) {
+          rowCsv += `,${sData.pitch}`;
         } else {
-          rowCsv += `,,"`;
+          rowCsv += `,`;
         }
       });
       

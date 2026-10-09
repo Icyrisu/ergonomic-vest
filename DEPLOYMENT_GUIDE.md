@@ -192,6 +192,108 @@ http://<IP_VPS_ANDA>
 
 ---
 
+### LANGKAH 10: Menghubungkan Domain & Mengaktifkan HTTPS (SSL Gratis)
+
+Jika Anda sudah memiliki nama domain (misal: `domainanda.com` atau subdomain `vest.domainanda.com`), ikuti langkah berikut untuk mengaktifkan HTTPS (gembok hijau/aman):
+
+#### 1. Arahkan DNS Domain ke IP VPS
+Buka dashboard tempat Anda membeli domain (Niagahoster, DomaiNesia, Cloudflare, Namecheap, Rumahweb, dll):
+- Buka menu **DNS Management** / **Zone Editor**.
+- Tambahkan **A Record**:
+  - **Type**: `A`
+  - **Name / Host**: `@` (untuk domain utama `domainanda.com`) atau `vest` (untuk `vest.domainanda.com`)
+  - **Points to / Target / Value**: `<IP_VPS_ANDA>`
+  - **TTL**: `Auto` atau `300`
+- Simpan. Tunggu 5–15 menit hingga domain mengarah ke server Anda. Anda bisa mengetes dengan membuka `http://domainanda.com` di browser.
+
+---
+
+#### 2. Pilih Salah Satu Metode Pasang SSL:
+
+##### METODE A: Menggunakan Cloudflare (Cara Paling Cepat, 0 Ketik Terminal)
+Jika nameserver domain Anda menggunakan **Cloudflare**:
+1. Di DNS Cloudflare, pastikan status **Proxy** aktif (awan berwarna oranye).
+2. Masuk ke menu **SSL/TLS** di Cloudflare, pilih mode **Flexible** atau **Full**.
+3. Akses `https://domainanda.com`. HTTPS langsung aktif otomatis tanpa perlu install apa pun di VPS!
+
+##### METODE B: Menggunakan Let's Encrypt Certbot di VPS (Standar & Resmi)
+Jika Anda ingin SSL terpasang langsung di dalam server Ubuntu Anda:
+
+**1. Pindahkan port Docker frontend ke 8080 (agar port 80 & 443 bebas untuk SSL Nginx host):**
+Buka file `.env` di VPS:
+```bash
+nano .env
+```
+Ubah baris `FRONTEND_PORT=80` menjadi:
+```env
+FRONTEND_PORT=8080
+```
+Simpan (`Ctrl + O`, `Enter`, `Ctrl + X`), lalu terapkan:
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+**2. Buka Port HTTPS (443) di Firewall:**
+```bash
+sudo ufw allow 443/tcp
+```
+
+**3. Install Nginx dan Certbot di Ubuntu:**
+```bash
+sudo apt install nginx certbot python3-certbot-nginx -y
+```
+
+**4. Buat Konfigurasi Nginx untuk Domain Anda:**
+```bash
+sudo nano /etc/nginx/sites-available/ergonomic-vest
+```
+Tempel konfigurasi berikut (ganti `domainanda.com` dengan nama domain asli Anda):
+```nginx
+server {
+    listen 80;
+    server_name domainanda.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+}
+```
+Simpan (`Ctrl + O`, `Enter`, `Ctrl + X`).
+
+**5. Aktifkan Konfigurasi Nginx:**
+```bash
+sudo ln -s /etc/nginx/sites-available/ergonomic-vest /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+**6. Pasang Sertifikat SSL Gratis (Certbot):**
+Jalankan perintah ini:
+```bash
+sudo certbot --nginx -d domainanda.com
+```
+- Masukkan alamat email Anda (untuk notifikasi perpanjangan jika perlu).
+- Ketik `y` untuk menyetujui Terms of Service.
+- Certbot akan otomatis menginstal sertifikat SSL, mengkonfigurasi HTTPS port 443, dan mengalihkan semua HTTP ke HTTPS!
+
+Sekarang buka browser Anda:
+```text
+https://domainanda.com
+```
+Status koneksi akan aman dengan lambang gembok HTTPS!
+
+---
+
 ## 🔧 Panduan Pemeliharaan & Troubleshooting
 
 ### 1. Bagaimana cara mematikan atau menyalakan ulang aplikasi?

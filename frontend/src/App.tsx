@@ -9,7 +9,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-  const { socket, mqttStatus } = useSocket();
+  const { socket } = useSocket();
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-800">
@@ -39,18 +39,8 @@ export default function App() {
             </h1>
           </div>
 
-          {/* Right: status + logo */}
+          {/* Right: logo */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
-            <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 md:px-3 md:py-1.5 rounded-lg border border-slate-200">
-              <span className="text-xs font-medium text-slate-600 hidden sm:inline">Status:</span>
-              <span className={`badge text-xs ${
-                mqttStatus === 'ONLINE' ? 'badge-safe' :
-                mqttStatus === 'CONNECTING' ? 'badge-warning' :
-                'badge-danger'
-              }`}>
-                {mqttStatus}
-              </span>
-            </div>
             <img src="/assets/logo.png" alt="UMJ Logo" className="h-8 md:h-10 w-auto object-contain shrink-0" />
           </div>
         </header>

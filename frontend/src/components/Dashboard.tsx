@@ -74,7 +74,7 @@ export default function Dashboard({ socket }: DashboardProps) {
       const uiStatus = document.getElementById(`status-${sid}`);
       
       if (uiLabel) {
-        uiLabel.innerHTML = `P:${data.pitch.toFixed(1)}&deg;<br/>R:${data.roll.toFixed(1)}&deg;`;
+        uiLabel.innerHTML = `${data.pitch.toFixed(1)}&deg;`;
       }
       
       if (uiCard) {
@@ -106,7 +106,7 @@ export default function Dashboard({ socket }: DashboardProps) {
             const bowArm = data.pitch;
             const bowChest = spinePitch.D !== undefined ? spinePitch.D + 90 : 0;
             t.x = (bowArm - bowChest) * (Math.PI / 180);
-            t.z = -data.roll  * (Math.PI / 180);
+            t.z = 0;
           }
         }
       } else {
@@ -211,7 +211,7 @@ export default function Dashboard({ socket }: DashboardProps) {
               ].map(s => (
                 <div key={s.id} id={`card-${s.id}`} className="bg-slate-50 py-2 px-2 lg:py-1 rounded-xl border border-slate-100 text-center flex flex-col justify-center transition-colors">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{s.label}</p>
-                  <p id={`val-${s.id}`} className="text-sm font-bold text-slate-800 my-0.5">--&deg;</p>
+                  <p id={`val-${s.id}`} className="text-base font-extrabold text-slate-800 my-0.5">--&deg;</p>
                   <p id={`status-${s.id}`} className="text-xs font-bold text-slate-400 uppercase tracking-wider">-</p>
                 </div>
               ))}

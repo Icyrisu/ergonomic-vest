@@ -28,30 +28,43 @@ export default function Sidebar({ isOpen, isMobileOpen, toggleSidebar, toggleMob
       `}>
         {/* Header */}
         <div className="flex items-center justify-center h-14 md:h-16 border-b border-slate-200 px-2 shrink-0">
-          <span className={`font-bold text-slate-800 text-base md:text-lg transition-opacity duration-300 text-center ${isOpen ? 'opacity-100 w-full block' : 'opacity-0 hidden'}`}>
-            Ergonomic Vest
-          </span>
-          <span className={`font-bold text-slate-800 text-base md:text-lg text-center w-full block ${isOpen ? 'hidden' : 'block'}`}>
-            EV
-          </span>
+          {isOpen ? (
+            <span className="font-bold text-slate-800 text-base md:text-lg transition-opacity duration-300 text-center w-full block">
+              Ergonomic Vest
+            </span>
+          ) : (
+            <span className="font-bold text-blue-600 text-base md:text-lg text-center w-full block">
+              EV
+            </span>
+          )}
         </div>
         
         {/* Navigation */}
         <nav className="flex-1 py-4 flex flex-col gap-2 px-3">
           <button 
             onClick={() => { setActiveTab('dashboard'); if(isMobileOpen) toggleMobileMenu(); }}
-            className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}
+            title={!isOpen ? 'Dashboard' : undefined}
+            className={`w-full flex items-center ${isOpen ? 'justify-start px-3.5 gap-3' : 'justify-center px-0'} py-3 rounded-xl transition-all ${
+              activeTab === 'dashboard' 
+                ? 'bg-blue-50 text-blue-600 font-semibold shadow-sm' 
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
           >
             <Activity className="w-5 h-5 flex-shrink-0" />
-            <span className={`${isOpen ? 'block' : 'hidden'}`}>Dashboard</span>
+            {isOpen && <span className="truncate">Dashboard</span>}
           </button>
 
           <button 
             onClick={() => { setActiveTab('history'); if(isMobileOpen) toggleMobileMenu(); }}
-            className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-colors ${activeTab === 'history' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}
+            title={!isOpen ? 'Data History' : undefined}
+            className={`w-full flex items-center ${isOpen ? 'justify-start px-3.5 gap-3' : 'justify-center px-0'} py-3 rounded-xl transition-all ${
+              activeTab === 'history' 
+                ? 'bg-blue-50 text-blue-600 font-semibold shadow-sm' 
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
           >
             <History className="w-5 h-5 flex-shrink-0" />
-            <span className={`${isOpen ? 'block' : 'hidden'}`}>Data History</span>
+            {isOpen && <span className="truncate">Data History</span>}
           </button>
         </nav>
 
