@@ -373,6 +373,28 @@ export function initThreeModel(container: HTMLElement | null) {
             sensorMeshes.forEach(g => { g.visible = visible; });
         };
 
+        // Global toggle for character mesh
+        window.toggleCharacter = (visible: boolean) => {
+            if (!bones.root) return;
+            bones.root.traverse((child: any) => {
+                if (!child.userData?.isSensorMesh && child instanceof THREE.Mesh) {
+                    child.visible = visible;
+                }
+            });
+        };
+
+        // Global camera angle preset for ergonomic biomechanics inspection
+        window.setCameraView = (view: 'front' | 'side' | 'perspective') => {
+            const dist = 4.0;
+            if (view === 'side') {
+                targetCamPos = controls.target.clone().add(new THREE.Vector3(dist, 0.2, 0));
+            } else if (view === 'front') {
+                targetCamPos = controls.target.clone().add(new THREE.Vector3(0, 0.2, dist));
+            } else if (view === 'perspective') {
+                targetCamPos = new THREE.Vector3(3.5, 1.8, 3.5);
+            }
+        };
+
         // Straight lines connecting sensors to central D (chest) - HIDDEN
         /*
         const linkGeo = new THREE.CylinderGeometry(0.015, 0.015, 1, 6);
