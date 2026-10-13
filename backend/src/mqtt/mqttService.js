@@ -20,8 +20,8 @@ let activeNeutralPoses = {
 // Konfigurasi manipulasi internal data sensor S5 & S6 (Web Level):
 // Karena sensor fisik S5 dan S6 belum siap dan program ESP32 tidak diubah,
 // data S5 disintesis dari S1 dan data S6 disintesis dari S4 dengan selisih beberapa derajat.
-const S5_SYNTH_OFFSET = 3.0; // S5 (Mid Back) beda +3.0 deg dari S1 (Neck)
-const S6_SYNTH_OFFSET = 4.5; // S6 (Pelvis) beda +4.5 deg dari S4 (Upper Back)
+const S5_SYNTH_OFFSET = parseFloat(process.env.S5_SYNTH_OFFSET ?? '-5.0'); // S5 (Mid Back) offset dari S1 (Neck)
+const S6_SYNTH_OFFSET = parseFloat(process.env.S6_SYNTH_OFFSET ?? '-5.0'); // S6 (Pelvis) offset dari S4 (Upper Back)
 
 const evaluateAndEmitSensor = (sensorTopic, sensorPitch) => {
     let status = 'Neutral Pose';
