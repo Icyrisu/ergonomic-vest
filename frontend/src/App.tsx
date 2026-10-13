@@ -9,7 +9,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-  const { socket } = useSocket();
+  const { socket, mqttStatus, isSocketConnected } = useSocket();
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-800">
@@ -47,7 +47,15 @@ export default function App() {
 
         {/* Content Area: fully responsive with clean scroll when viewport height is constrained */}
         <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3 md:p-4">
-          {activeTab === 'dashboard' ? <Dashboard socket={socket} /> : <DataHistory />}
+          {activeTab === 'dashboard' ? (
+            <Dashboard 
+              socket={socket} 
+              mqttStatus={mqttStatus} 
+              isSocketConnected={isSocketConnected} 
+            />
+          ) : (
+            <DataHistory />
+          )}
         </div>
 
         {/* Footer - compact */}

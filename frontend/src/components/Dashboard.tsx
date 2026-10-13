@@ -15,9 +15,11 @@ import StopSessionModal from './dashboard/StopSessionModal';
 
 interface DashboardProps {
   socket: Socket | null;
+  mqttStatus?: string;
+  isSocketConnected?: boolean;
 }
 
-export default function Dashboard({ socket }: DashboardProps) {
+export default function Dashboard({ socket, mqttStatus = 'CHECKING', isSocketConnected = false }: DashboardProps) {
   const [wrenchStatus, setWrenchStatus] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isStopModalOpen, setIsStopModalOpen] = useState<boolean>(false);
@@ -143,6 +145,13 @@ export default function Dashboard({ socket }: DashboardProps) {
         }`;
       }
 
+      // Live Telemetry RX Ticker for instant visual verification
+      const rxTicker = document.getElementById('rx-debug-ticker');
+      if (rxTicker) {
+        rxTicker.innerText = `[RX] ${data.topic}: ${pitchVal.toFixed(1)}° (${new Date().toLocaleTimeString()})`;
+      }
+      console.log(`[Telemetry RX] Topic: ${data.topic} | Pitch: ${pitchVal}° | Status: ${statusVal}`);
+
       if ((window as any).updateBoneStatus) {
         (window as any).updateBoneStatus(bonesMap[sid], statusVal);
       }
@@ -263,18 +272,49 @@ export default function Dashboard({ socket }: DashboardProps) {
       {/* ======================================================= */}
       <div className="bg-white px-3 py-2 rounded-lg border border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
         
-        {/* Left: Overall Posture Status */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Overall Posture:</span>
-          <span className={`text-xs font-bold px-2.5 py-0.5 rounded border uppercase ${
-            overallStatus === 'Bad Pose' 
-              ? 'bg-red-50 text-red-700 border-red-200' 
-              : overallStatus === 'Working Pose'
-              ? 'bg-amber-50 text-amber-700 border-amber-200'
-              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-          }`}>
-            {overallStatus}
-          </span>
+        {/* Left: Overall Posture Status & Connectivity Indicators */}
+        <div className="flex items-center flex-wrap gap-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Overall Posture:</span>
+            <span className={`text-xs font-bold px-2.5 py-0.5 rounded border uppercase ${
+              overallStatus === 'Bad Pose' 
+                ? 'bg-red-50 text-red-700 border-red-200' 
+                : overallStatus === 'Working Pose'
+                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            }`}>
+              {overallStatus}
+            </span>
+          </div>
+
+          <div className="h-3.5 w-[1px] bg-slate-200 hidden sm:block"></div>
+
+          {/* MQTT & Socket Status Badges */}
+          <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-1" title="Koneksi WebSocket Frontend ke Backend Node.js">
+              <span className={`w-2 h-2 rounded-full ${isSocketConnected ? 'bg-emerald-500' : 'bg-red-500 animate-ping'}`} />
+              <span className="text-[11px] font-semibold text-slate-500">WS:</span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                isSocketConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
+              }`}>
+                {isSocketConnected ? 'ONLINE' : 'OFFLINE'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1" title="Koneksi Backend ke Broker HiveMQ MQTT">
+              <span className={`w-2 h-2 rounded-full ${mqttStatus === 'ONLINE' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+              <span className="text-[11px] font-semibold text-slate-500">MQTT:</span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                mqttStatus === 'ONLINE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                {mqttStatus}
+              </span>
+            </div>
+
+            <span id="rx-debug-ticker" className="text-[10px] font-mono text-slate-400 hidden xl:inline">
+              [Waiting for MQTT Telemetry...]
+            </span>
+          </div>
         </div>
 
         {/* Right: Stopwatch + Tare Action */}

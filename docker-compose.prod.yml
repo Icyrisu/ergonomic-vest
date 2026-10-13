@@ -29,7 +29,7 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgres://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-ergonomic_vest}
-      - MQTT_BROKER=${MQTT_BROKER:-wss://broker.hivemq.com:8884/mqtt}
+      - MQTT_BROKER=${MQTT_BROKER:-mqtt://broker.hivemq.com:1883}
       - PORT=3000
     depends_on:
       database:

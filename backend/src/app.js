@@ -18,6 +18,17 @@ app.get('/api/mqtt-status', (req, res) => {
     res.json({ online: mqttService.getStatus() });
 });
 
+app.get('/api/debug/mqtt', (req, res) => {
+    const io = req.app.get('io');
+    const socketClientsCount = io ? io.sockets.sockets.size : 0;
+    res.json({
+        diagnostics: mqttService.getDiagnosticStats(),
+        socketClientsCount,
+        latestSensorData: mqttService.getLatestSensorData(),
+        serverTime: new Date().toISOString()
+    });
+});
+
 app.use('/api/sessions', sessionRoutes);
 
 // Error Handling Middleware
