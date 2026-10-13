@@ -8,6 +8,7 @@ let latestSensorData = {};
 let ioInstance = null;
 let client = null;
 
+let activeTolerance = 10;
 let activeNeutralPoses = {
     'UMJ/EV/S1': [0, 10],
     'UMJ/EV/S2': [-20, 20],
@@ -32,6 +33,7 @@ const evaluateAndEmitSensor = (sensorTopic, sensorPitch) => {
     }
     
     const relativePitch = sensorPitch - baseline;
+    const tolerance = typeof activeTolerance === 'number' ? activeTolerance : 10;
 
     if (bounds && bounds.length === 2) {
         const min = bounds[0];
@@ -39,7 +41,7 @@ const evaluateAndEmitSensor = (sensorTopic, sensorPitch) => {
         
         if (relativePitch >= min && relativePitch <= max) {
             status = 'Neutral Pose';
-        } else if (relativePitch >= (min - activeTolerance) && relativePitch <= (max + activeTolerance)) {
+        } else if (relativePitch >= (min - tolerance) && relativePitch <= (max + tolerance)) {
             status = 'Working Pose';
         } else {
             status = 'Bad Pose';
