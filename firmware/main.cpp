@@ -21,13 +21,32 @@ const char *mqttUser     = "";     // Leave empty if no authentication
 const char *mqttPassword = "";     // Leave empty if no authentication
 
 // MQTT Topics
-const char *topicSensor1 = "UMJ/EV/S2";       // Upper Spine / Thoracic Pitch
-const char *topicSensor2 = "UMJ/EV/S3";       // Lower Spine / Lumbar Pitch
+const char *topicSensor1 = "UMJ/EV/S1";       // Sensor 1 (e.g. S1 Neck -> Target -90 deg)
+const char *topicSensor2 = "UMJ/EV/S4";       // Sensor 2 (e.g. S4 Upper Back -> Target -90 deg)
 const char *topicCommand = "UMJ/EV/CMD";      // Inbound Commands (e.g. {"command":"tare"})
 const char *topicResp    = "UMJ/EV/RESP";     // Outbound Acknowledgment
 
 // Physical Tare Button (BOOT Button on ESP32 GPIO 0)
 #define TARE_BUTTON_PIN  0
+
+// ============================================================================
+// TARGET POSTURE CALIBRATION HELPER
+// ============================================================================
+// Otomatis menentukan target sudut netral berdasarkan topik:
+// - Lengan (S2, S3)                         -> Target Netral =   0.0 deg
+// - Tulang Belakang / Leher (S1, S4, S5, S6) -> Target Netral = -90.0 deg
+inline float getTargetPitchForTopic(const char *topic)
+{
+    if (strstr(topic, "S2") != NULL || strstr(topic, "S3") != NULL)
+    {
+        return 0.0f; // Arm position (hanging straight down)
+    }
+    return -90.0f;   // Spine / Neck upright neutral position (-90 deg)
+}
+
+// Target sudut yang disesuaikan saat inisialisasi
+float targetPitch1 = -90.0f;
+float targetPitch2 = -90.0f;
 
 // Payload decimals (Pitch-only)
 const int PAYLOAD_DECIMAL_PLACES = 2;
@@ -52,7 +71,7 @@ struct SensorData
     float pitch2;
 };
 
-SensorData sharedSensorData = {0.0f, 0.0f};
+SensorData sharedSensorData = {-90.0f, -90.0f};
 SemaphoreHandle_t dataMutex = NULL;
 
 // RTOS Task Handles
@@ -63,12 +82,10 @@ TaskHandle_t taskNetworkHandle = NULL;
 volatile bool requestTare    = false;
 volatile bool tareAckPending = false;
 
-// Sensor Offsets
-float gxOffset1 = 0.0f;
+// Sensor Offsets (Using Gyro Y for pitch axis)
 float gyOffset1 = 0.0f;
 float pitchOffset1 = 0.0f;
 
-float gxOffset2 = 0.0f;
 float gyOffset2 = 0.0f;
 float pitchOffset2 = 0.0f;
 
@@ -136,42 +153,38 @@ KalmanFilter kalPitch1;
 KalmanFilter kalPitch2;
 
 // ============================================================================
-// HELPER: PITCH CALCULATION & DEAD-BAND GYRO (ZUPT)
+// HELPER: PITCH CALCULATION (SWAPPED TO ACTIVE MOVEMENT AXIS)
 // ============================================================================
-// Calculates Pitch angle from raw accelerometer data:
-// Pitch = atan2(ay, sqrt(ax^2 + az^2)) * 180 / PI
-// Incorporates Zero Velocity Update (dead-band): when stationary (<0.25 deg/s),
-// gyro rate is clamped to zero to prevent integration creep.
 float readMPUPitch(
     Adafruit_MPU6050 &mpu,
     KalmanFilter &kalPitch,
-    float gxOffset,
+    float gyOffset,
     float pitchOffset,
     float dt)
 {
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
 
-    // 1. Accelerometer Pitch Angle (Euler representation for trunk flexion)
+    // 1. Accelerometer Pitch Angle
     float accPitch = atan2(
-                         a.acceleration.y,
-                         sqrt(a.acceleration.x * a.acceleration.x + a.acceleration.z * a.acceleration.z)) *
+                         -a.acceleration.x,
+                         sqrt(a.acceleration.y * a.acceleration.y + a.acceleration.z * a.acceleration.z)) *
                      180.0f / PI;
 
-    // Apply zero-calibration offset
+    // Koreksi posisi awal berdasarkan offset kalibrasi
     accPitch -= pitchOffset;
 
-    // 2. Gyro Rate in deg/s
-    float gyroPitch = (g.gyro.x - gxOffset) * 180.0f / PI;
+    // 2. Gyro Rate dari sumbu Y (deg/s)
+    float gyroPitch = (g.gyro.y - gyOffset) * 180.0f / PI;
 
     // 3. Stationary Deadband / ZUPT (Zero Velocity Update)
-    // Eliminates micro-drift while user is standing or sitting still
+    // Mencegah akumulasi drift saat tubuh berdiri/diam
     if (fabs(gyroPitch) < 0.25f)
     {
         gyroPitch = 0.0f;
     }
 
-    // 4. Sensor Fusion using Kalman Filter
+    // 4. Kalman Filter Fusion
     return kalPitch.getAngle(accPitch, gyroPitch, dt);
 }
 
@@ -182,8 +195,8 @@ void calibrateSensors()
 {
     Serial.println("\n[CALIB] Starting initial stationary gyro and level calibration...");
     const int samples = 500;
-    float gxSum1 = 0, pitchSum1 = 0;
-    float gxSum2 = 0, pitchSum2 = 0;
+    float gySum1 = 0, pitchSum1 = 0;
+    float gySum2 = 0, pitchSum2 = 0;
 
     for (int i = 0; i < samples; i++)
     {
@@ -191,11 +204,13 @@ void calibrateSensors()
         mpu1.getEvent(&a1, &g1, &t1);
         mpu2.getEvent(&a2, &g2, &t2);
 
-        gxSum1 += g1.gyro.x;
-        gxSum2 += g2.gyro.x;
+        // Gyro Y offset
+        gySum1 += g1.gyro.y;
+        gySum2 += g2.gyro.y;
 
-        float p1 = atan2(a1.acceleration.y, sqrt(a1.acceleration.x * a1.acceleration.x + a1.acceleration.z * a1.acceleration.z)) * 180.0f / PI;
-        float p2 = atan2(a2.acceleration.y, sqrt(a2.acceleration.x * a2.acceleration.x + a2.acceleration.z * a2.acceleration.z)) * 180.0f / PI;
+        // Accel pitch
+        float p1 = atan2(-a1.acceleration.x, sqrt(a1.acceleration.y * a1.acceleration.y + a1.acceleration.z * a1.acceleration.z)) * 180.0f / PI;
+        float p2 = atan2(-a2.acceleration.x, sqrt(a2.acceleration.y * a2.acceleration.y + a2.acceleration.z * a2.acceleration.z)) * 180.0f / PI;
 
         pitchSum1 += p1;
         pitchSum2 += p2;
@@ -203,18 +218,20 @@ void calibrateSensors()
         delay(3);
     }
 
-    gxOffset1 = gxSum1 / samples;
-    gxOffset2 = gxSum2 / samples;
+    gyOffset1 = gySum1 / samples;
+    gyOffset2 = gySum2 / samples;
 
-    pitchOffset1 = pitchSum1 / samples;
-    pitchOffset2 = pitchSum2 / samples;
+    // Hitung offset agar hasil fusi berada persis pada targetPitch masing-masing
+    pitchOffset1 = (pitchSum1 / samples) - targetPitch1;
+    pitchOffset2 = (pitchSum2 / samples) - targetPitch2;
 
-    kalPitch1.setAngle(0.0f);
-    kalPitch2.setAngle(0.0f);
+    kalPitch1.setAngle(targetPitch1);
+    kalPitch2.setAngle(targetPitch2);
 
-    Serial.printf("[CALIB] MPU1 GyroOffset: %.4f rad/s, PitchOffset: %.2f deg\n", gxOffset1, pitchOffset1);
-    Serial.printf("[CALIB] MPU2 GyroOffset: %.4f rad/s, PitchOffset: %.2f deg\n", gxOffset2, pitchOffset2);
-    Serial.println("[CALIB] Initial calibration complete! Baseline zeroed.");
+    Serial.printf("[CALIB] MPU1 (%s) GyroY Offset: %.4f rad/s, Pitch Offset: %.2f deg -> Baseline: %.1f deg\n",
+                  topicSensor1, gyOffset1, pitchOffset1, targetPitch1);
+    Serial.printf("[CALIB] MPU2 (%s) GyroY Offset: %.4f rad/s, Pitch Offset: %.2f deg -> Baseline: %.1f deg\n",
+                  topicSensor2, gyOffset2, pitchOffset2, targetPitch2);
 }
 
 // ============================================================================
@@ -233,8 +250,8 @@ void executeTare()
         mpu1.getEvent(&a1, &g1, &t1);
         mpu2.getEvent(&a2, &g2, &t2);
 
-        float p1 = atan2(a1.acceleration.y, sqrt(a1.acceleration.x * a1.acceleration.x + a1.acceleration.z * a1.acceleration.z)) * 180.0f / PI;
-        float p2 = atan2(a2.acceleration.y, sqrt(a2.acceleration.x * a2.acceleration.x + a2.acceleration.z * a2.acceleration.z)) * 180.0f / PI;
+        float p1 = atan2(-a1.acceleration.x, sqrt(a1.acceleration.y * a1.acceleration.y + a1.acceleration.z * a1.acceleration.z)) * 180.0f / PI;
+        float p2 = atan2(-a2.acceleration.x, sqrt(a2.acceleration.y * a2.acceleration.y + a2.acceleration.z * a2.acceleration.z)) * 180.0f / PI;
 
         sumP1 += p1;
         sumP2 += p2;
@@ -242,23 +259,24 @@ void executeTare()
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 
-    // Set new offsets to zero out angles
-    pitchOffset1 = sumP1 / (float)tareSamples;
-    pitchOffset2 = sumP2 / (float)tareSamples;
+    // Set new offsets to target neutral pitch (-90 for spine/neck, 0 for arms)
+    pitchOffset1 = (sumP1 / (float)tareSamples) - targetPitch1;
+    pitchOffset2 = (sumP2 / (float)tareSamples) - targetPitch2;
 
-    kalPitch1.setAngle(0.0f);
-    kalPitch2.setAngle(0.0f);
+    kalPitch1.setAngle(targetPitch1);
+    kalPitch2.setAngle(targetPitch2);
 
     if (xSemaphoreTake(dataMutex, pdMS_TO_TICKS(10)) == pdTRUE)
     {
-        sharedSensorData.pitch1 = 0.0f;
-        sharedSensorData.pitch2 = 0.0f;
+        sharedSensorData.pitch1 = targetPitch1;
+        sharedSensorData.pitch2 = targetPitch2;
         xSemaphoreGive(dataMutex);
     }
 
     requestTare = false;
     tareAckPending = true;
-    Serial.printf("[TARE] New Offsets -> MPU1: %.2f deg, MPU2: %.2f deg. Zero achieved!\n", pitchOffset1, pitchOffset2);
+    Serial.printf("[TARE] New Offsets -> MPU1: %.2f deg (Target: %.1f), MPU2: %.2f deg (Target: %.1f). Done!\n",
+                  pitchOffset1, targetPitch1, pitchOffset2, targetPitch2);
 }
 
 // ============================================================================
@@ -321,9 +339,9 @@ void taskSensorCode(void *parameter)
             executeTare();
         }
 
-        // 3. Read Sensors with Anti-Drift Kalman Filter
-        float p1 = readMPUPitch(mpu1, kalPitch1, gxOffset1, pitchOffset1, dt);
-        float p2 = readMPUPitch(mpu2, kalPitch2, gxOffset2, pitchOffset2, dt);
+        // 3. Read Sensors with Swapped Anti-Drift Pitch Axis
+        float p1 = readMPUPitch(mpu1, kalPitch1, gyOffset1, pitchOffset1, dt);
+        float p2 = readMPUPitch(mpu2, kalPitch2, gyOffset2, pitchOffset2, dt);
 
         // 4. Update Shared Data with Mutex
         if (xSemaphoreTake(dataMutex, pdMS_TO_TICKS(5)) == pdTRUE)
@@ -416,8 +434,8 @@ void taskNetworkCode(void *parameter)
                 {
                     char respBuf[128];
                     snprintf(respBuf, sizeof(respBuf),
-                             "{\"status\":\"tare_ok\",\"offset1\":%.2f,\"offset2\":%.2f}",
-                             pitchOffset1, pitchOffset2);
+                             "{\"status\":\"tare_ok\",\"offset1\":%.2f,\"offset2\":%.2f,\"target1\":%.1f,\"target2\":%.1f}",
+                             pitchOffset1, pitchOffset2, targetPitch1, targetPitch2);
                     mqttClient.publish(topicResp, respBuf);
                     Serial.printf("[MQTT TX] Published tare acknowledgment to %s: %s\n", topicResp, respBuf);
                     tareAckPending = false;
@@ -442,8 +460,8 @@ void taskNetworkCode(void *parameter)
                     mqttClient.publish(topicSensor2, payload2.c_str());
 
                     // Telemetry output on Serial
-                    Serial.printf("[TELEM] S1 (Thoracic): %.2f deg | S2 (Lumbar): %.2f deg\n",
-                                  currentData.pitch1, currentData.pitch2);
+                    Serial.printf("[TELEM] %s: %.2f deg | %s: %.2f deg\n",
+                                  topicSensor1, currentData.pitch1, topicSensor2, currentData.pitch2);
                 }
             }
         }
@@ -462,6 +480,16 @@ void setup()
     Serial.println("\n=======================================================");
     Serial.println("  ERGONOMIC VEST - ESP32 DUAL-CORE ANTI-DRIFT FIRMWARE  ");
     Serial.println("=======================================================");
+
+    // Determine neutral targets automatically based on configured topic
+    targetPitch1 = getTargetPitchForTopic(topicSensor1);
+    targetPitch2 = getTargetPitchForTopic(topicSensor2);
+
+    Serial.printf("[CONFIG] Topic 1: %s -> Neutral Target: %.1f deg\n", topicSensor1, targetPitch1);
+    Serial.printf("[CONFIG] Topic 2: %s -> Neutral Target: %.1f deg\n", topicSensor2, targetPitch2);
+
+    sharedSensorData.pitch1 = targetPitch1;
+    sharedSensorData.pitch2 = targetPitch2;
 
     // Pin Tare BOOT Button
     pinMode(TARE_BUTTON_PIN, INPUT_PULLUP);

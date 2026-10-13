@@ -30,6 +30,7 @@ export default function Dashboard({ socket }: DashboardProps) {
   const [showCharacter, setShowCharacter] = useState<boolean>(true);
   const [showSensors, setShowSensors] = useState<boolean>(true);
   const [tareFeedback, setTareFeedback] = useState<string | null>(null);
+  const [currentActivity, setCurrentActivity] = useState<'Neutral' | 'Material Picking' | 'Fastening with Tool'>('Neutral');
 
   // Sensor state for UI
   const [sensorValues, setSensorValues] = useState<Record<string, { pitch: number; status: string }>>({
@@ -148,6 +149,24 @@ export default function Dashboard({ socket }: DashboardProps) {
       } else {
         spinePitch[sid] = pitchVal;
         updateSpineBones();
+
+        // Evaluate activity dynamically based on spine flexion
+        if (!wrenchStatus) {
+          const bowD = spinePitch.D !== undefined ? spinePitch.D + 90 : 0;
+          const bowE = spinePitch.E !== undefined ? spinePitch.E + 90 : 0;
+          if (Math.max(bowD, bowE) >= 20) {
+            updateActivity('Material Picking');
+          } else {
+            updateActivity('Neutral');
+          }
+        }
+      }
+    };
+
+    const updateActivity = (act: 'Neutral' | 'Material Picking' | 'Fastening with Tool') => {
+      setCurrentActivity(act);
+      if (window.updateActivityProp) {
+        window.updateActivityProp(act);
       }
     };
 
@@ -155,6 +174,29 @@ export default function Dashboard({ socket }: DashboardProps) {
       setWrenchStatus(isOn);
       if (window.updateWrenchState) {
         window.updateWrenchState(isOn);
+      }
+      if (isOn) {
+        updateActivity('Fastening with Tool');
+      } else {
+        const bowD = spinePitch.D !== undefined ? spinePitch.D + 90 : 0;
+        const bowE = spinePitch.E !== undefined ? spinePitch.E + 90 : 0;
+        if (Math.max(bowD, bowE) >= 20) {
+          updateActivity('Material Picking');
+        } else {
+          updateActivity('Neutral');
+        }
+      }
+    };
+
+    const handleHarUpdate = (data: { activity: string }) => {
+      if (data && data.activity) {
+        if (data.activity.includes('Fastening')) {
+          updateActivity('Fastening with Tool');
+        } else if (data.activity.includes('Picking') || data.activity.includes('Bending')) {
+          updateActivity('Material Picking');
+        } else {
+          updateActivity('Neutral');
+        }
       }
     };
 
@@ -172,6 +214,7 @@ export default function Dashboard({ socket }: DashboardProps) {
     socket.on('session_status', handleSessionStatus);
     socket.on('tare_synced', handleTareAck);
     socket.on('tare_ack', handleTareAck);
+    socket.on('har_update', handleHarUpdate);
 
     socket.emit('request_session_status');
 
@@ -181,8 +224,9 @@ export default function Dashboard({ socket }: DashboardProps) {
       socket.off('session_status', handleSessionStatus);
       socket.off('tare_synced', handleTareAck);
       socket.off('tare_ack', handleTareAck);
+      socket.off('har_update', handleHarUpdate);
     };
-  }, [socket]);
+  }, [socket, wrenchStatus]);
 
   // Camera preset handlers
   const handleCameraChange = (view: 'perspective' | 'front' | 'side') => {
@@ -237,18 +281,38 @@ export default function Dashboard({ socket }: DashboardProps) {
       {/* ======================================================= */}
       <div className="bg-white px-3 py-2 rounded-lg border border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
         
-        {/* Left: Overall Posture Status */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Overall Posture:</span>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded border uppercase ${
-            overallStatus === 'Bad Pose' 
-              ? 'bg-red-50 text-red-700 border-red-200' 
-              : overallStatus === 'Working Pose'
-              ? 'bg-amber-50 text-amber-700 border-amber-200'
-              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-          }`}>
-            {overallStatus}
-          </span>
+        {/* Left: Overall Posture & Real-Time Activity */}
+        <div className="flex items-center flex-wrap gap-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Posture:</span>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded border uppercase ${
+              overallStatus === 'Bad Pose' 
+                ? 'bg-red-50 text-red-700 border-red-200' 
+                : overallStatus === 'Working Pose'
+                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            }`}>
+              {overallStatus}
+            </span>
+          </div>
+
+          <div className="h-3.5 w-[1px] bg-slate-200 hidden sm:block"></div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Activity:</span>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded border uppercase transition-colors ${
+              currentActivity === 'Fastening with Tool'
+                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                : currentActivity === 'Material Picking'
+                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                : 'bg-slate-100 text-slate-700 border-slate-200'
+            }`}>
+              {currentActivity}
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium hidden md:inline">
+              ({currentActivity === 'Fastening with Tool' ? 'Impact Wrench' : currentActivity === 'Material Picking' ? 'Material Box' : 'Hands Empty'})
+            </span>
+          </div>
         </div>
 
         {/* Right: Stopwatch + Tare Action */}

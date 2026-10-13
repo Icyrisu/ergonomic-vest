@@ -187,62 +187,134 @@ export function initThreeModel(container: HTMLElement | null) {
         }
         buildLeg(-1); buildLeg(+1);
 
-        // --- Pose: Hands clasped forward ---
-        // Arms pointing forward-center (static pose)
-        lArm.anchor.rotation.z = 0.2;
-        lArm.upperArm.rotation.x = -1.2;
-        lArm.upperArm.rotation.z = 0.45;
-        lArm.forearm.rotation.x = -0.5;
-        lArm.forearm.rotation.z = -0.1; 
+        // --- Pose Presets for Dynamic Work Activities ---
+        // Neutral: Arms relaxed down at sides of body
+        // Fastening: Arms raised forward holding Impact Wrench / Bor
+        // Material Picking: Arms reaching down/forward holding Cardboard Box
+        const ARM_PRESETS = {
+            Neutral: {
+                lAnchor: { x: 0, z: 0.05 },
+                lUpper:  { x: 0.08, z: 0.12 },
+                lFore:   { x: 0.15, z: 0.05 },
+                rAnchor: { x: 0, z: -0.05 },
+                rUpper:  { x: 0.08, z: -0.12 },
+                rFore:   { x: 0.15, z: -0.05 }
+            },
+            Fastening: {
+                lAnchor: { x: 0, z: 0.2 },
+                lUpper:  { x: -1.2, z: 0.45 },
+                lFore:   { x: -0.5, z: -0.1 },
+                rAnchor: { x: 0, z: -0.2 },
+                rUpper:  { x: -1.2, z: -0.45 },
+                rFore:   { x: -0.5, z: 0.1 }
+            },
+            Picking: {
+                lAnchor: { x: 0, z: 0.15 },
+                lUpper:  { x: -0.85, z: 0.38 },
+                lFore:   { x: -0.45, z: 0.18 },
+                rAnchor: { x: 0, z: -0.15 },
+                rUpper:  { x: -0.85, z: -0.38 },
+                rFore:   { x: -0.45, z: -0.18 }
+            }
+        };
 
-        rArm.anchor.rotation.z = -0.2;
-        rArm.upperArm.rotation.x = -1.2;
-        rArm.upperArm.rotation.z = -0.45;
-        rArm.forearm.rotation.x = -0.5;
-        rArm.forearm.rotation.z = 0.1;
+        // Active arm pose target (starts Neutral: hands at sides)
+        let targetArmPose = ARM_PRESETS.Neutral;
+
+        // Initialize arm joint rotations to Neutral
+        lArm.anchor.rotation.z = ARM_PRESETS.Neutral.lAnchor.z;
+        lArm.upperArm.rotation.x = ARM_PRESETS.Neutral.lUpper.x;
+        lArm.upperArm.rotation.z = ARM_PRESETS.Neutral.lUpper.z;
+        lArm.forearm.rotation.x = ARM_PRESETS.Neutral.lFore.x;
+        lArm.forearm.rotation.z = ARM_PRESETS.Neutral.lFore.z;
+
+        rArm.anchor.rotation.z = ARM_PRESETS.Neutral.rAnchor.z;
+        rArm.upperArm.rotation.x = ARM_PRESETS.Neutral.rUpper.x;
+        rArm.upperArm.rotation.z = ARM_PRESETS.Neutral.rUpper.z;
+        rArm.forearm.rotation.x = ARM_PRESETS.Neutral.rFore.x;
+        rArm.forearm.rotation.z = ARM_PRESETS.Neutral.rFore.z;
 
         window.mannequinBones = bones;
 
         // ====================================================
-        // Impact Wrench (Held correctly between both hands)
+        // Dynamic Props: 1. Impact Wrench (Bor)
         // ====================================================
         const wrench = new THREE.Group();
-        // Default OFF (Transparent Red)
-        const wMat = new THREE.MeshPhongMaterial({ color: 0xef4444, flatShading: true, transparent: true, opacity: 0.5 });
-        const wNoseMat = new THREE.MeshPhongMaterial({ color: 0xb91c1c, flatShading: true, transparent: true, opacity: 0.5 });
+        const wMat = new THREE.MeshPhongMaterial({ color: 0xef4444, flatShading: true, transparent: true, opacity: 0.85 });
+        const wNoseMat = new THREE.MeshPhongMaterial({ color: 0xb91c1c, flatShading: true, transparent: true, opacity: 0.85 });
 
         // Global function to change drill color (Called from app.js)
         window.updateWrenchState = (isOn) => {
             if (isOn) {
-                // Transparent Green if ON
                 wMat.color.setHex(0x22c55e);
                 wNoseMat.color.setHex(0x16a34a);
             } else {
-                // Transparent Red if OFF
                 wMat.color.setHex(0xef4444);
                 wNoseMat.color.setHex(0xb91c1c);
             }
         };
 
-        // Wrench origin moved to Handle
         const handle = new THREE.Mesh(mkCyl(0.025, 0.02, 0.14), wMat);
         handle.position.set(0, 0, 0); 
         wrench.add(handle);
 
         const housing = new THREE.Mesh(mkCyl(0.045, 0.05, 0.22), wMat);
-        housing.rotation.x = Math.PI / 2; // ROTATE X AXIS TO FACE FRONT (Z)
+        housing.rotation.x = Math.PI / 2;
         housing.position.set(0, 0.08, 0.05); 
         wrench.add(housing);
 
         const nose = new THREE.Mesh(mkCyl(0.02, 0.035, 0.10), wNoseMat);
-        nose.rotation.x = Math.PI / 2; // PUTAR SUMBU X AGAR MENGHADAP DEPAN
+        nose.rotation.x = Math.PI / 2;
         nose.position.set(0, 0.08, 0.20); 
         wrench.add(nose);
 
-        // Attach drill to chest for absolute straight direction
         wrench.position.set(0, 0.08, 0.42); 
-        wrench.rotation.set(0, 0, 0); 
+        wrench.scale.set(0, 0, 0);
+        wrench.visible = false;
         bones.chest.add(wrench);
+
+        // ====================================================
+        // Dynamic Props: 2. Material Box (Kotak Kardus)
+        // ====================================================
+        const box = new THREE.Group();
+        const boxMat = new THREE.MeshPhongMaterial({ color: 0xd97706, flatShading: true, shininess: 25 });
+        const tapeMat = new THREE.MeshPhongMaterial({ color: 0xfef08a, flatShading: true, shininess: 50 });
+
+        const boxBody = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.20, 0.24), boxMat);
+        box.add(boxBody);
+
+        const tapeH = new THREE.Mesh(new THREE.BoxGeometry(0.325, 0.035, 0.245), tapeMat);
+        box.add(tapeH);
+
+        const tapeV = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.205, 0.245), tapeMat);
+        box.add(tapeV);
+
+        box.position.set(0, -0.05, 0.38);
+        box.scale.set(0, 0, 0);
+        box.visible = false;
+        bones.chest.add(box);
+
+        // Smooth scale targets for props
+        let targetWrenchScale = 0.0;
+        let targetBoxScale = 0.0;
+
+        // Global function to smoothly transition character activity & props
+        window.updateActivityProp = (activity: string) => {
+            if (activity === 'Fastening with Tool' || activity === 'Fastening') {
+                targetArmPose = ARM_PRESETS.Fastening;
+                targetWrenchScale = 1.0;
+                targetBoxScale = 0.0;
+            } else if (activity === 'Material Picking' || activity === 'Picking') {
+                targetArmPose = ARM_PRESETS.Picking;
+                targetWrenchScale = 0.0;
+                targetBoxScale = 1.0;
+            } else {
+                // Neutral: Hands at sides, no props
+                targetArmPose = ARM_PRESETS.Neutral;
+                targetWrenchScale = 0.0;
+                targetBoxScale = 0.0;
+            }
+        };
 
 
         // ====================================================
@@ -587,8 +659,7 @@ export function initThreeModel(container: HTMLElement | null) {
                 }
             }
 
-            // Smooth lerp: gradually move each bone toward its target rotation
-            // Factor 0.15 ≈ 60fps gives ~150ms settling time — responsive but jitter-free
+            // Smooth lerp: gradually move each spine bone toward its target rotation
             const LERP = 0.15;
             for (const [name, target] of Object.entries(targetRotations)) {
                 const bone = bones[name];
@@ -597,6 +668,32 @@ export function initThreeModel(container: HTMLElement | null) {
                     bone.rotation.z += (target.z - bone.rotation.z) * LERP;
                 }
             }
+
+            // Smooth lerp for dynamic arm joints (natural arm movement transitions between activities)
+            const ARM_LERP = 0.08;
+            lArm.anchor.rotation.z += (targetArmPose.lAnchor.z - lArm.anchor.rotation.z) * ARM_LERP;
+            lArm.upperArm.rotation.x += (targetArmPose.lUpper.x - lArm.upperArm.rotation.x) * ARM_LERP;
+            lArm.upperArm.rotation.z += (targetArmPose.lUpper.z - lArm.upperArm.rotation.z) * ARM_LERP;
+            lArm.forearm.rotation.x += (targetArmPose.lFore.x - lArm.forearm.rotation.x) * ARM_LERP;
+            lArm.forearm.rotation.z += (targetArmPose.lFore.z - lArm.forearm.rotation.z) * ARM_LERP;
+
+            rArm.anchor.rotation.z += (targetArmPose.rAnchor.z - rArm.anchor.rotation.z) * ARM_LERP;
+            rArm.upperArm.rotation.x += (targetArmPose.rUpper.x - rArm.upperArm.rotation.x) * ARM_LERP;
+            rArm.upperArm.rotation.z += (targetArmPose.rUpper.z - rArm.upperArm.rotation.z) * ARM_LERP;
+            rArm.forearm.rotation.x += (targetArmPose.rFore.x - rArm.forearm.rotation.x) * ARM_LERP;
+            rArm.forearm.rotation.z += (targetArmPose.rFore.z - rArm.forearm.rotation.z) * ARM_LERP;
+
+            // Smooth scale transitions for dynamic props (Box & Wrench)
+            const PROP_LERP = 0.12;
+            const curWScale = wrench.scale.x;
+            const nextWScale = curWScale + (targetWrenchScale - curWScale) * PROP_LERP;
+            wrench.scale.set(nextWScale, nextWScale, nextWScale);
+            wrench.visible = nextWScale > 0.01;
+
+            const curBScale = box.scale.x;
+            const nextBScale = curBScale + (targetBoxScale - curBScale) * PROP_LERP;
+            box.scale.set(nextBScale, nextBScale, nextBScale);
+            box.visible = nextBScale > 0.01;
 
             controls.update();
             // updateSensorLines(); // DEPRECATED

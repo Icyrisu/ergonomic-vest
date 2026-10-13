@@ -3,6 +3,7 @@
 interface Window {
   mannequinBones?: Record<string, import('three').Object3D>;
   updateWrenchState?: (isOn: boolean) => void;
+  updateActivityProp?: (activity: string) => void;
   toggleSensors?: (visible: boolean) => void;
   toggleCharacter?: (visible: boolean) => void;
   setCameraView?: (view: 'front' | 'side' | 'perspective') => void;

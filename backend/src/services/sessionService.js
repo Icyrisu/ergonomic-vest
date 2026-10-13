@@ -81,6 +81,28 @@ const sessionService = {
 
     async getSessionData(sessionName) {
         return await sessionModel.getSessionDataByName(sessionName);
+    },
+
+    async formatSessionCsv(sessionName) {
+        const rows = await sessionModel.getSessionDataByName(sessionName);
+        let csv = 'Timestamp,Wrench Status,S1 Neck Pitch,S2 Right Shoulder Pitch,S3 Left Shoulder Pitch,S4 Upper Back Pitch,S5 Mid Back Pitch,S6 Pelvis Pitch\n';
+
+        rows.forEach(r => {
+            const ts = new Date(r.recorded_at).toISOString();
+            const wrench = r.wrench_status === 'ONLINE' ? 'ON' : 'OFF';
+            const sensors = r.sensors || {};
+
+            const s1 = sensors['UMJ/EV/S1']?.pitch ?? '';
+            const s2 = sensors['UMJ/EV/S2']?.pitch ?? '';
+            const s3 = sensors['UMJ/EV/S3']?.pitch ?? '';
+            const s4 = sensors['UMJ/EV/S4']?.pitch ?? '';
+            const s5 = sensors['UMJ/EV/S5']?.pitch ?? '';
+            const s6 = sensors['UMJ/EV/S6']?.pitch ?? '';
+
+            csv += `${ts},${wrench},${s1},${s2},${s3},${s4},${s5},${s6}\n`;
+        });
+
+        return csv;
     }
 };
 

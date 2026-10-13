@@ -16,7 +16,42 @@ let activeNeutralPoses = {
     'UMJ/EV/S5': [-10, 10],
     'UMJ/EV/S6': [-10, 10],
 };
-let activeTolerance = 10;
+// Konfigurasi manipulasi internal data sensor S5 & S6 (Web Level):
+// Karena sensor fisik S5 dan S6 belum siap dan program ESP32 tidak diubah,
+// data S5 disintesis dari S1 dan data S6 disintesis dari S4 dengan selisih beberapa derajat.
+const S5_SYNTH_OFFSET = 3.0; // S5 (Mid Back) beda +3.0 deg dari S1 (Neck)
+const S6_SYNTH_OFFSET = 4.5; // S6 (Pelvis) beda +4.5 deg dari S4 (Upper Back)
+
+const evaluateAndEmitSensor = (sensorTopic, sensorPitch) => {
+    let status = 'Neutral Pose';
+    const bounds = activeNeutralPoses[sensorTopic];
+    
+    let baseline = -90;
+    if (sensorTopic === 'UMJ/EV/S2' || sensorTopic === 'UMJ/EV/S3') {
+        baseline = 0;
+    }
+    
+    const relativePitch = sensorPitch - baseline;
+
+    if (bounds && bounds.length === 2) {
+        const min = bounds[0];
+        const max = bounds[1];
+        
+        if (relativePitch >= min && relativePitch <= max) {
+            status = 'Neutral Pose';
+        } else if (relativePitch >= (min - activeTolerance) && relativePitch <= (max + activeTolerance)) {
+            status = 'Working Pose';
+        } else {
+            status = 'Bad Pose';
+        }
+    }
+    
+    latestSensorData[sensorTopic] = { pitch: sensorPitch, status };
+    
+    if (ioInstance) {
+        ioInstance.emit('sensor_data', { topic: sensorTopic, pitch: sensorPitch, status });
+    }
+};
 
 const mqttService = {
     setActiveSessionNeutralPoses(poses) {
@@ -75,34 +110,18 @@ const mqttService = {
                 
                 if (payload.pitch !== undefined) {
                     const pitch = parseFloat(payload.pitch);
-                    
-                    let status = 'Neutral Pose';
-                    const bounds = activeNeutralPoses[topic];
-                    
-                    let baseline = -90;
-                    if (topic === 'UMJ/EV/S2' || topic === 'UMJ/EV/S3') {
-                        baseline = 0;
-                    }
-                    
-                    const relativePitch = pitch - baseline;
 
-                    if (bounds && bounds.length === 2) {
-                        const min = bounds[0];
-                        const max = bounds[1];
-                        
-                        if (relativePitch >= min && relativePitch <= max) {
-                            status = 'Neutral Pose';
-                        } else if (relativePitch >= (min - activeTolerance) && relativePitch <= (max + activeTolerance)) {
-                            status = 'Working Pose';
-                        } else {
-                            status = 'Bad Pose';
-                        }
-                    }
-                    
-                    latestSensorData[topic] = { pitch, status };
-                    
-                    if (ioInstance) {
-                        ioInstance.emit('sensor_data', { topic, pitch, status });
+                    // 1. Evaluasi & pancarkan data sensor fisik yang diterima dari MQTT
+                    evaluateAndEmitSensor(topic, pitch);
+
+                    // 2. Manipulasi internal data S5 & S6 di sisi web backend
+                    //    (ESP32 tidak perlu diubah, cukup kirim S1 dan S4 saja)
+                    if (topic === 'UMJ/EV/S1') {
+                        const s5Pitch = parseFloat((pitch + S5_SYNTH_OFFSET).toFixed(2));
+                        evaluateAndEmitSensor('UMJ/EV/S5', s5Pitch);
+                    } else if (topic === 'UMJ/EV/S4') {
+                        const s6Pitch = parseFloat((pitch + S6_SYNTH_OFFSET).toFixed(2));
+                        evaluateAndEmitSensor('UMJ/EV/S6', s6Pitch);
                     }
                 }
             } catch (err) {

@@ -31,6 +31,7 @@ services:
       - DATABASE_URL=postgres://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB:-ergonomic_vest}
       - MQTT_BROKER=${MQTT_BROKER:-wss://broker.hivemq.com:8884/mqtt}
       - PORT=3000
+      - ML_SERVICE_URL=http://ml-service:8000
     depends_on:
       database:
         condition: service_healthy
@@ -39,6 +40,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - ev-network
+
+  ml-service:
+    container_name: ev-ml-service
+    build:
+      context: ./ml_service
+    restart: always
+    ports:
+      - "8000:8000"
     networks:
       - ev-network
 

@@ -58,6 +58,17 @@ const sessionController = {
         } catch (err) {
             next(err);
         }
+    },
+
+    async exportSessionCsv(req, res, next) {
+        try {
+            const csv = await sessionService.formatSessionCsv(req.params.name);
+            res.setHeader('Content-Type', 'text/csv');
+            res.setHeader('Content-Disposition', `attachment; filename="${req.params.name}.csv"`);
+            res.status(200).send(csv);
+        } catch (err) {
+            next(err);
+        }
     }
 };
 
