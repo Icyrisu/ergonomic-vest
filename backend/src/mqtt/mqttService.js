@@ -172,8 +172,11 @@ const mqttService = {
                 if (pitchRaw !== undefined) {
                     const pitch = parseFloat(pitchRaw);
 
-                    // 1. Evaluasi & pancarkan data sensor fisik yang diterima dari MQTT
-                    evaluateAndEmitSensor(normTopic, pitch);
+                    // 1. Evaluasi & pancarkan data sensor fisik dari MQTT
+                    // (Abaikan payload fisik S5 & S6 dari broker agar tidak flicker/bertabrakan dengan manipulasi)
+                    if (normTopic !== 'UMJ/EV/S5' && normTopic !== 'UMJ/EV/S6') {
+                        evaluateAndEmitSensor(normTopic, pitch);
+                    }
 
                     // 2. Manipulasi internal data S5 & S6 di sisi web backend
                     //    (ESP32 tidak perlu diubah, cukup kirim S1 dan S4 saja)
