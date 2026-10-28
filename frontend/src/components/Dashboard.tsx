@@ -27,6 +27,7 @@ export default function Dashboard({ socket, mqttStatus = 'CHECKING', isSocketCon
 
   // Ergonomic state
   const [overallStatus, setOverallStatus] = useState<'Neutral Pose' | 'Working Pose' | 'Bad Pose'>('Neutral Pose');
+  const [isMLMode, setIsMLMode] = useState<boolean>(true);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [activeCameraView, setActiveCameraView] = useState<'perspective' | 'front' | 'side'>('perspective');
   const [showCharacter, setShowCharacter] = useState<boolean>(true);
@@ -195,6 +196,15 @@ export default function Dashboard({ socket, mqttStatus = 'CHECKING', isSocketCon
 
     const handleSessionStatus = (isActive: boolean) => {
       setIsSessionActive(isActive);
+      if (!isActive) {
+        setIsMLMode(true);
+      }
+    };
+
+    const handleEvaluationMode = (payload: { useML?: boolean }) => {
+      if (payload && typeof payload.useML === 'boolean') {
+        setIsMLMode(payload.useML);
+      }
     };
 
     const handleTareAck = () => {
@@ -205,6 +215,7 @@ export default function Dashboard({ socket, mqttStatus = 'CHECKING', isSocketCon
     socket.on('sensor_data', handleSensorData);
     socket.on('wrench_status', handleWrenchStatus);
     socket.on('session_status', handleSessionStatus);
+    socket.on('evaluation_mode', handleEvaluationMode);
     socket.on('tare_synced', handleTareAck);
     socket.on('tare_ack', handleTareAck);
 
@@ -214,6 +225,7 @@ export default function Dashboard({ socket, mqttStatus = 'CHECKING', isSocketCon
       socket.off('sensor_data', handleSensorData);
       socket.off('wrench_status', handleWrenchStatus);
       socket.off('session_status', handleSessionStatus);
+      socket.off('evaluation_mode', handleEvaluationMode);
       socket.off('tare_synced', handleTareAck);
       socket.off('tare_ack', handleTareAck);
     };
@@ -285,13 +297,23 @@ export default function Dashboard({ socket, mqttStatus = 'CHECKING', isSocketCon
             }`}>
               {overallStatus}
             </span>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
+                isMLMode
+                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}
+              title={isMLMode ? 'Posture evaluated using Machine Learning model' : 'Manual Dataset Collection Mode (Without ML)'}
+            >
+              {isMLMode ? 'ML ACTIVE' : 'DATASET MODE'}
+            </span>
           </div>
 
           <div className="h-3.5 w-[1px] bg-slate-200 hidden sm:block"></div>
 
           {/* MQTT & Socket Status Badges */}
           <div className="flex items-center gap-2 text-xs">
-            <div className="flex items-center gap-1" title="Koneksi WebSocket Frontend ke Backend Node.js">
+            <div className="flex items-center gap-1" title="WebSocket connection to Node.js backend">
               <span className={`w-2 h-2 rounded-full ${isSocketConnected ? 'bg-emerald-500' : 'bg-red-500 animate-ping'}`} />
               <span className="text-[11px] font-semibold text-slate-500">WS:</span>
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
@@ -301,7 +323,7 @@ export default function Dashboard({ socket, mqttStatus = 'CHECKING', isSocketCon
               </span>
             </div>
 
-            <div className="flex items-center gap-1" title="Koneksi Backend ke Broker HiveMQ MQTT">
+            <div className="flex items-center gap-1" title="Backend connection to MQTT broker">
               <span className={`w-2 h-2 rounded-full ${mqttStatus === 'ONLINE' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
               <span className="text-[11px] font-semibold text-slate-500">MQTT:</span>
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${

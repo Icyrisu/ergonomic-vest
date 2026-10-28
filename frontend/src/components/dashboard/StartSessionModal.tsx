@@ -25,6 +25,7 @@ export default function StartSessionModal({ isOpen, onClose, onSuccess }: StartS
     'UMJ/EV/S6': [-10, 10],
   };
 
+  const [enableManualPose, setEnableManualPose] = useState(false); // false = Gunakan ML, true = Ambil Dataset (Tanpa ML)
   const [useDefault, setUseDefault] = useState(true);
   const [neutralPoses, setNeutralPoses] = useState(defaultPoses);
 
@@ -38,6 +39,7 @@ export default function StartSessionModal({ isOpen, onClose, onSuccess }: StartS
     try {
       const payloadPoses: any = { ...(useDefault ? defaultPoses : neutralPoses) };
       payloadPoses.tolerance = tolerance;
+      payloadPoses.useML = !enableManualPose;
       
       await api.startSession({
         session_name: sessionName,
@@ -122,59 +124,98 @@ export default function StartSessionModal({ isOpen, onClose, onSuccess }: StartS
             </div>
 
             <div className="mb-6 p-4 border border-slate-200 rounded-xl bg-slate-50/50">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-bold text-slate-800">Neutral Pose Angles</label>
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-600 select-none">
-                  <input type="checkbox" checked={useDefault} onChange={(e) => setUseDefault(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                  Use Default
-                </label>
-              </div>
-              
-              <div className="flex flex-col gap-4">
-                {[
-                  { id: 'UMJ/EV/S1', label: 'Neck (S1)' },
-                  { id: 'UMJ/EV/S2', label: 'Right Arm (S2)' },
-                  { id: 'UMJ/EV/S3', label: 'Left Arm (S3)' },
-                  { id: 'UMJ/EV/S4', label: 'Upper Back (S4)' },
-                  { id: 'UMJ/EV/S5', label: 'Waist (S5)' },
-                  { id: 'UMJ/EV/S6', label: 'Pelvis (S6)' }
-                ].map((sensor) => (
-                  <div key={sensor.id} className="flex flex-col">
-                    <span className="text-xs font-semibold text-slate-500 mb-1">{sensor.label}</span>
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="number" 
-                        disabled={useDefault}
-                        value={useDefault ? defaultPoses[sensor.id][0] : neutralPoses[sensor.id][0]}
-                        onChange={(e) => setNeutralPoses({...neutralPoses, [sensor.id]: [Number(e.target.value), neutralPoses[sensor.id][1]]})}
-                        className="w-full px-2 py-1.5 text-sm bg-white border border-slate-200 rounded-md disabled:bg-slate-100 disabled:text-slate-400 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
-                      />
-                      <span className="text-slate-400 font-bold">-</span>
-                      <input 
-                        type="number" 
-                        disabled={useDefault}
-                        value={useDefault ? defaultPoses[sensor.id][1] : neutralPoses[sensor.id][1]}
-                        onChange={(e) => setNeutralPoses({...neutralPoses, [sensor.id]: [neutralPoses[sensor.id][0], Number(e.target.value)]})}
-                        className="w-full px-2 py-1.5 text-sm bg-white border border-slate-200 rounded-md disabled:bg-slate-100 disabled:text-slate-400 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
-                      />
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <label className="text-sm font-bold text-slate-800 block">Neutral Pose Angles (Manual Parameters)</label>
+                  <span className="text-xs text-slate-500">
+                    {enableManualPose
+                      ? 'Enabled: Manual Dataset Collection Mode (Without ML)'
+                      : 'Disabled: Using Machine Learning Model (ML)'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEnableManualPose(!enableManualPose)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    enableManualPose ? 'bg-amber-500' : 'bg-slate-300'
+                  }`}
+                  title={enableManualPose ? 'Disable to use Machine Learning' : 'Enable for manual dataset collection without ML'}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      enableManualPose ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
 
-              <div className="flex flex-col mt-4">
-                <label className="text-sm font-semibold text-slate-700 mb-1">
-                  Tolerance Pose (Degrees)
-                </label>
-                <input 
-                  type="number"
-                  value={tolerance}
-                  onChange={(e) => setTolerance(parseFloat(e.target.value))}
-                  className="w-full px-2 py-1.5 text-sm bg-white border border-slate-200 rounded-md disabled:bg-slate-100 disabled:text-slate-400 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                  required
-                  disabled={useDefault}
-                />
-              </div>
+              {!enableManualPose ? (
+                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs leading-relaxed">
+                  <span className="font-bold block mb-0.5 uppercase tracking-wide">Machine Learning Mode Active</span>
+                  Manual parameters are disabled. Posture classification (<b>Neutral Pose</b>, <b>Working Pose</b>, and <b>Bad Pose</b>) is automatically evaluated by the Random Forest ML model.
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-between">
+                    <span><b>Dataset Collection Mode:</b> ML evaluation is disabled.</span>
+                    <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700 select-none">
+                      <input
+                        type="checkbox"
+                        checked={useDefault}
+                        onChange={(e) => setUseDefault(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Use Default
+                    </label>
+                  </div>
+
+                  <div className="flex flex-col gap-4">
+                    {[
+                      { id: 'UMJ/EV/S1', label: 'Neck (S1)' },
+                      { id: 'UMJ/EV/S2', label: 'Right Arm (S2)' },
+                      { id: 'UMJ/EV/S3', label: 'Left Arm (S3)' },
+                      { id: 'UMJ/EV/S4', label: 'Upper Back (S4)' },
+                      { id: 'UMJ/EV/S5', label: 'Waist (S5)' },
+                      { id: 'UMJ/EV/S6', label: 'Pelvis (S6)' }
+                    ].map((sensor) => (
+                      <div key={sensor.id} className="flex flex-col">
+                        <span className="text-xs font-semibold text-slate-500 mb-1">{sensor.label}</span>
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="number" 
+                            disabled={useDefault}
+                            value={useDefault ? defaultPoses[sensor.id][0] : neutralPoses[sensor.id][0]}
+                            onChange={(e) => setNeutralPoses({...neutralPoses, [sensor.id]: [Number(e.target.value), neutralPoses[sensor.id][1]]})}
+                            className="w-full px-2 py-1.5 text-sm bg-white border border-slate-200 rounded-md disabled:bg-slate-100 disabled:text-slate-400 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+                          />
+                          <span className="text-slate-400 font-bold">-</span>
+                          <input 
+                            type="number" 
+                            disabled={useDefault}
+                            value={useDefault ? defaultPoses[sensor.id][1] : neutralPoses[sensor.id][1]}
+                            onChange={(e) => setNeutralPoses({...neutralPoses, [sensor.id]: [neutralPoses[sensor.id][0], Number(e.target.value)]})}
+                            className="w-full px-2 py-1.5 text-sm bg-white border border-slate-200 rounded-md disabled:bg-slate-100 disabled:text-slate-400 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-col mt-4">
+                    <label className="text-sm font-semibold text-slate-700 mb-1">
+                      Tolerance Pose (Degrees)
+                    </label>
+                    <input 
+                      type="number"
+                      value={tolerance}
+                      onChange={(e) => setTolerance(parseFloat(e.target.value))}
+                      className="w-full px-2 py-1.5 text-sm bg-white border border-slate-200 rounded-md disabled:bg-slate-100 disabled:text-slate-400 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                      required
+                      disabled={useDefault}
+                    />
+                  </div>
+                </>
+              )}
             </div>
             
             <div className="flex gap-3 justify-end pt-2">

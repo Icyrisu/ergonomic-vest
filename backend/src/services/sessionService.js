@@ -70,6 +70,18 @@ const sessionService = {
         
         const endedSession = activeSession;
         activeSession = null;
+        if (mqttService) {
+            mqttService.setActiveSessionNeutralPoses({
+                'UMJ/EV/S1': [0, 10],
+                'UMJ/EV/S2': [-20, 20],
+                'UMJ/EV/S3': [-20, 20],
+                'UMJ/EV/S4': [0, 20],
+                'UMJ/EV/S5': [-10, 10],
+                'UMJ/EV/S6': [-10, 10],
+                tolerance: 10,
+                useML: true
+            });
+        }
         logger.info(`Session stopped: ${endedSession}`);
         
         return endedSession;

@@ -1,6 +1,7 @@
 const mqtt = require('mqtt');
 const env = require('../config/env');
 const logger = require('../utils/logger');
+const mlInferenceService = require('../services/mlInferenceService');
 
 let isConnected = false;
 let currentWrenchStatus = 'OFF';
@@ -9,6 +10,7 @@ let ioInstance = null;
 let client = null;
 
 let activeTolerance = 10;
+let useMLMode = true; // Default: gunakan Machine Learning (nonaktif parameter manual)
 let activeNeutralPoses = {
     'UMJ/EV/S1': [0, 10],
     'UMJ/EV/S2': [-20, 20],
@@ -25,33 +27,58 @@ const S6_SYNTH_OFFSET = parseFloat(process.env.S6_SYNTH_OFFSET ?? '-5.0'); // S6
 
 const evaluateAndEmitSensor = (sensorTopic, sensorPitch) => {
     let status = 'Neutral Pose';
-    const bounds = activeNeutralPoses[sensorTopic];
-    
-    let baseline = -90;
-    if (sensorTopic === 'UMJ/EV/S2' || sensorTopic === 'UMJ/EV/S3') {
-        baseline = 0;
-    }
-    
-    const relativePitch = sensorPitch - baseline;
-    const tolerance = typeof activeTolerance === 'number' ? activeTolerance : 10;
+    let mlConfidence = null;
 
-    if (bounds && bounds.length === 2) {
-        const min = bounds[0];
-        const max = bounds[1];
-        
-        if (relativePitch >= min && relativePitch <= max) {
-            status = 'Neutral Pose';
-        } else if (relativePitch >= (min - tolerance) && relativePitch <= (max + tolerance)) {
-            status = 'Working Pose';
-        } else {
-            status = 'Bad Pose';
+    if (useMLMode) {
+        // MODE 1: Machine Learning Aktif (Parameter Manual Nonaktif)
+        const prediction = mlInferenceService.updateSensorAndPredict(
+            sensorTopic,
+            sensorPitch,
+            currentWrenchStatus,
+            activeNeutralPoses,
+            activeTolerance
+        );
+        status = prediction.status;
+        mlConfidence = prediction.confidence;
+    } else {
+        // MODE 2: Ambil Dataset / Threshold Manual (Tanpa ML)
+        const bounds = activeNeutralPoses[sensorTopic];
+        let baseline = -90;
+        if (sensorTopic === 'UMJ/EV/S2' || sensorTopic === 'UMJ/EV/S3') {
+            baseline = 0;
+        }
+        const relativePitch = sensorPitch - baseline;
+        const tolerance = typeof activeTolerance === 'number' ? activeTolerance : 10;
+
+        if (bounds && bounds.length === 2) {
+            const min = bounds[0];
+            const max = bounds[1];
+
+            if (relativePitch >= min && relativePitch <= max) {
+                status = 'Neutral Pose';
+            } else if (relativePitch >= (min - tolerance) && relativePitch <= (max + tolerance)) {
+                status = 'Working Pose';
+            } else {
+                status = 'Bad Pose';
+            }
         }
     }
-    
-    latestSensorData[sensorTopic] = { pitch: sensorPitch, status };
-    
+
+    latestSensorData[sensorTopic] = {
+        pitch: sensorPitch,
+        status,
+        mode: useMLMode ? 'ML' : 'MANUAL',
+        ...(mlConfidence !== null ? { mlConfidence } : {})
+    };
+
     if (ioInstance) {
-        ioInstance.emit('sensor_data', { topic: sensorTopic, pitch: sensorPitch, status });
+        ioInstance.emit('sensor_data', {
+            topic: sensorTopic,
+            pitch: sensorPitch,
+            status,
+            mode: useMLMode ? 'ML' : 'MANUAL',
+            ...(mlConfidence !== null ? { mlConfidence } : {})
+        });
     }
 };
 
@@ -76,7 +103,17 @@ const mqttService = {
             } else {
                 activeTolerance = 10;
             }
+            // Jika useML dikirim false (saat Parameter Manual diaktifkan untuk ambil dataset), matikan ML
+            if (poses.useML !== undefined) {
+                useMLMode = Boolean(poses.useML);
+            } else {
+                useMLMode = true;
+            }
             activeNeutralPoses = poses;
+            logger.info(`[MQTT] Posture Evaluation Mode: ${useMLMode ? 'ML (Machine Learning)' : 'MANUAL (Dataset Collection without ML)'}`);
+            if (ioInstance) {
+                ioInstance.emit('evaluation_mode', { useML: useMLMode });
+            }
         }
     },
 
@@ -160,6 +197,14 @@ const mqttService = {
                         if (ioInstance) {
                             ioInstance.emit('wrench_status', currentWrenchStatus === 'ON');
                         }
+                        // Evaluasi ulang seluruh sensor aktif agar status Working Pose / Bad Pose
+                        // langsung berubah seketika saat bor dinyalakan atau dimatikan
+                        Object.keys(latestSensorData).forEach(sensorTopic => {
+                            const lastPitch = latestSensorData[sensorTopic]?.pitch;
+                            if (typeof lastPitch === 'number') {
+                                evaluateAndEmitSensor(sensorTopic, lastPitch);
+                            }
+                        });
                     }
                     return;
                 }
@@ -225,7 +270,8 @@ const mqttService = {
             ...diagnosticStats,
             connected: isConnected,
             brokerUrl: env.MQTT_BROKER,
-            wrenchStatus: currentWrenchStatus
+            wrenchStatus: currentWrenchStatus,
+            mlModel: mlInferenceService.getModelInfo()
         };
     },
 
@@ -241,6 +287,12 @@ const mqttService = {
         if (isConnected && client) {
             currentWrenchStatus = value;
             client.publish('UMJ/EV/WR', JSON.stringify({ value: value }));
+            Object.keys(latestSensorData).forEach(sensorTopic => {
+                const lastPitch = latestSensorData[sensorTopic]?.pitch;
+                if (typeof lastPitch === 'number') {
+                    evaluateAndEmitSensor(sensorTopic, lastPitch);
+                }
+            });
         }
     },
 
