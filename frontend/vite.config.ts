@@ -89,9 +89,8 @@ export default defineConfig({
   ],
 
   server: {
-    // Mengizinkan host dari Railway agar tidak diblokir
-    // (jika nanti Anda menggunakan custom domain, Anda bisa mengubahnya menjadi `allowedHosts: true` atau menambahkan domain baru di sini)
-    allowedHosts: ['ergonomic-vest-production.up.railway.app'],
+    // Mengizinkan host dari Railway dan VPS domain agar tidak diblokir
+    allowedHosts: ['ergonomicvest.icyris.my.id', 'ergonomic-vest-production.up.railway.app'],
     proxy: {
       '/api': {
         target: BACKEND_URL,
