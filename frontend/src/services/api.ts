@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '';
+const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || '';
+const isRemoteHost = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+const API_BASE_URL = (isRemoteHost && rawBackendUrl.includes('localhost')) ? '' : rawBackendUrl;
 
 export const api = {
   async startSession(data: { session_name: string; name: string; id: string; group: string; neutralPoses: any }) {
